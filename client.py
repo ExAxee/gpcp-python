@@ -8,9 +8,8 @@ class Client:
     def __init__(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     
-    def startclient(self, port=7530):
-        self.socket.connect( (socket.gethostname(), port) )
-        print(f"Connected!")
+    def startclient(self, host: str, port: int):
+        self.socket.connect( (host, port) )
         
         try:
             while 1:
@@ -34,4 +33,4 @@ class Client:
         except:
             print("Some error has occurred, closing connections.")
             self.socket.shutdown(socket.SHUT_RDWR)
-           self.socket.close()
+            self.socket.close()
