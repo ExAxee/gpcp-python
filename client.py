@@ -30,3 +30,17 @@ class Client:
             default_handler(self.socket, data)
         else:
             return data
+    
+    def closeConnection(self, mode = "RW": str):
+        """closes the connection to the server, RW = read and write, R = read, W = write"""
+        if mode == "RW":
+            self.socket.shutdown(socket.SHUT_RDWR)
+        elif mode == "R":
+            self.socket.shutdown(socket.SHUT_RD)
+        elif mode == "W":
+            self.socket.shutdown(socket.SHUT_WR)
+        else:
+            raise ValueError("close mode must be 'R' or 'W' or 'RW'")
+        
+        self.socket.close()
+
