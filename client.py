@@ -7,7 +7,7 @@ class Client:
         """if default_handler is specified all responses to all requests will be handled by this callable"""
 
         if default_handler is not None:
-            if not isinstance(default_handler, callable):
+            if not callable(default_handler):
                 raise ValueError(f"invalid option '{default_handler}' for default_handler, must be callable")
         self.default_handler = default_handler
 
@@ -26,8 +26,8 @@ class Client:
     def request(self, request, handler=None):
         """if handler is specified it will overwrite temporairly the default_handler"""
 
-        if not isinstance(handler, callable):
-                raise ValueError(f"invalid option '{handler}' for handler, must be callable")
+        if not callable(handler):
+            raise ValueError(f"invalid option '{handler}' for handler, must be callable")
 
         if isinstance(request, bytes):
             self.socket.sendall(bytes(f"{len(request):<{Client.HEADER}}") + request)
