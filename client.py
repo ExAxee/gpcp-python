@@ -6,9 +6,10 @@ class Client:
     def __init__(self, default_handler=None):
         """if default_handler is specified all responses to all requests will be handled by this callable"""
 
-        if default_handler:
+        if default_handler is not None:
             if not isinstance(default_handler, callable):
                 raise ValueError(f"invalid option '{default_handler}' for default_handler, must be callable")
+        self.default_handler = default_handler
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -25,7 +26,7 @@ class Client:
     def request(self, request, handler=None):
         """if handler is specified it will overwrite temporairly the default_handler"""
 
-        if not isinstance(default_handler, callable):
+        if not isinstance(handler, callable):
                 raise ValueError(f"invalid option '{handler}' for handler, must be callable")
 
         if isinstance(request, bytes):
@@ -39,10 +40,10 @@ class Client:
         while len(data) < head:
             data += self.socket.recv( int(head) - len(data) )
 
-        if handler != None:
+        if handler is not None:
             handler(self.socket, data)
-        elif default_handler != None:
-            default_handler(self.socket, data)
+        elif self.default_handler is not None:
+            self.default_handler(self.socket, data)
         else:
             return data
 
