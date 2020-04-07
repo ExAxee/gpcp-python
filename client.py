@@ -30,11 +30,11 @@ class Client:
                 raise ValueError(f"invalid option '{handler}' for handler, must be callable")
 
         if isinstance(request, bytes):
-            self.socket.sendall(bytes(f"{len(request):<{HEADER}}") + request)
+            self.socket.sendall(bytes(f"{len(request):<{Client.HEADER}}") + request)
         else:
-            self.socket.sendall(bytes(f"{len(request):<{HEADER}}" + request))
+            self.socket.sendall(bytes(f"{len(request):<{Client.HEADER}}" + request))
 
-        head = self.socket.recv(HEADER) #read the header from a buffered request
+        head = self.socket.recv(Client.HEADER) #read the header from a buffered request
         data = self.socket.recv(int(head)) #read the actual message of len head
 
         while len(data) < head:
