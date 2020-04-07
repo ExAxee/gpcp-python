@@ -12,7 +12,7 @@ class Server:
         else:
             raise ValueError(f"invalid option '{reuse_addr}' for reuse_adrr, must be True or False")
     
-    def startServer(self, IP, port=7530, data_request_trigger, connection_request_trigger=None, buffer=5):
+    def startServer(self, IP, port, data_request_trigger, connection_request_trigger=None, buffer=5):
         """start the server and open it for connections."""
         
         if not isinstance(IP, str):
