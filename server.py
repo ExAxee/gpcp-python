@@ -19,9 +19,9 @@ class Server:
             raise ValueError(f"invalid option '{IP}' for IP, must be string")
         if not isinstance(port, int):
             raise ValueError(f"invalid option '{port}' for port, must be integer")
-        if not isinstance(data_request_trigger, callable):
+        if not callable(data_request_trigger):
             raise ValueError(f"invalid option '{data_request_trigger}' for data_request_trigger, must be callable")
-        if not isinstance(connection_request_trigger, callable):
+        if not callable(connection_request_trigger):
             raise ValueError(f"invalid option '{connection_request_trigger}' for connection_request_trigger, must be callable")
         if not isinstance(buffer, int):
             raise ValueError(f"invalid option '{buffer}' for buffer, must be integer")
@@ -59,9 +59,7 @@ class Server:
         if (connection, connection.getpeername() ) not in self.connections:
             raise ValueError(f"connection {connection.getsockname()} is not a connection of this server")
         if msg:
-            connection.send(bytes(
-                f"{len(msg):<{Server.HEADER}}" + msg
-                ))
+            connection.send(bytes(f"{len(msg):<{Server.HEADER}}" + msg))
         self.connections.remove( (connection, connection.getpeername() ) )
         connection.shutdown(socket.SHUT_RDWR)
         connection.close()
