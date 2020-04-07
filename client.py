@@ -1,36 +1,32 @@
 import socket
 
-global HEADER
-HEADER = 4
-
 class Client:
+    HEADER = 4
     
-    def __init__(self):
+    def __init__(self, default_handler=None: callable):
+        """if default_handler is specified all responses to all requests will be handled by this callable"""
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     
-    def startclient(self, host: str, port: int):
+    def connect(self, host: str, port: int):
         self.socket.connect( (host, port) )
+    
+    def request(self, request, handler=None: callable):
+        """if handler is specified it will overwrite temporairly the default_handler"""
         
-        try:
-            while 1:
-                self.full_msg = ""
-                self.new_msg = True
-                while 1:
-                    self.msg = self.socket.recv(16)
-                    if self.new_msg:
-                        self.msg_len = int(self.msg[:HEADER])
-                        print(f"Message of len {self.msg_len} recived")
-                        self.new_msg = False
-                              
-                    self.full_msg += self.msg.decode("utf-8")
-                    
-                    if len(self.full_msg) - HEADER == self.msg_len:
-                        print(self.full_msg)
-                        print("Full message recived")
-                        self.new_msg = True
-                        self.full_msg = ""
+        if isinstance(request, bytes): 
+            self.socket.sendall(bytes(f"{len(request):<{HEADER}}") + request)
+        else:
+            self.socket.sendall(bytes(f"{len(request):<{HEADER}}" + request))
         
-        except:
-            print("Some error has occurred, closing connections.")
-            self.socket.shutdown(socket.SHUT_RDWR)
-            self.socket.close()
+        head = self.socket.recv(HEADER) #read the header from a buffered request
+        data = self.socket.recv(int(head)) #read the actual message of len head
+        
+        while len(data) < head:
+            data += self.socket.recv( int(head) - len(data) )
+        
+        if handler != None:
+            handler(self.socket, data)
+        elif default_handler != None:
+            default_handler(self.socket, data)
+        else:
+            return data

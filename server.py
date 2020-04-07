@@ -1,9 +1,7 @@
 import socket
 
-global HEADER
-HEADER = 4
-
 class Server:
+    HEADER = 4
     
     def __init__(self,
                  reuse_addr=False: bool):
@@ -30,17 +28,23 @@ class Server:
                 connection_request_trigger(connection, address)
             
             for connection in self.connections:
-                head = connection[0].recv(HEADER)
-                data = connection[0].recv(int(head))
+                head = connection[0].recv(HEADER) #read the header from a buffered request
+                data = connection[0].recv(int(head)) #read the actual message of len head
+                
+                while len(data) < head:
+                    data += connection[0].recv( int(head) - len(data) )
+                
                 response = data_request_trigger(data, connection)
                 
                 if isinstance(response, bytes):
-                    connection.sendall(f"{len(response):<{HEADER}}" + response)
+                    connection.sendall(bytes(f"{len(response):<{HEADER}}") + response)
                 else:
                     connection.sendall(bytes(f"{len(response):<{HEADER}}" + response))
     
     def closeConnection(self, connection, msg = None: str):
         """closes a connection from a client, if msg is specified the server will send that msg and after will close the connection"""
+        if (connection, connection.getpeername() ) not in self.connections:
+            raise ValueError(f"connection {connection.getsockname()} is not a connection of this server")
         if msg:
             connection.send(bytes(
                 f"{len(msg):<{HEADER}}" + msg
