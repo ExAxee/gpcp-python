@@ -35,10 +35,11 @@ class Client:
             self.socket.sendall((f"{len(request):<{Client.HEADER}}" + request).encode("utf-8"))
 
         head = self.socket.recv(Client.HEADER) #read the header from a buffered request
-        data = self.socket.recv(int(head)) #read the actual message of len head
+        byteCount = int(head)
+        data = self.socket.recv(byteCount) #read the actual message of len head
 
-        while len(data) < head:
-            data += self.socket.recv( int(head) - len(data) )
+        while len(data) < byteCount:
+            data += self.socket.recv( byteCount - len(data) )
 
         if handler is not None:
             handler(self.socket, data)

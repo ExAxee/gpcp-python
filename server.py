@@ -37,17 +37,18 @@ class Server:
 
             for connection in self.connections:
                 head = connection[0].recv(Server.HEADER) #read the header from a buffered request
-                data = connection[0].recv(int(head)) #read the actual message of len head
+                byteCount = int(head)
+                data = connection[0].recv(byteCount) #read the actual message of len head
 
-                while len(data) < head:
-                    data += connection[0].recv( int(head) - len(data) )
+                while len(data) < byteCount:
+                    data += connection[0].recv( byteCount - len(data) )
 
                 response = data_request_trigger(data, connection)
 
                 if isinstance(response, bytes):
-                    connection.sendall(f"{len(response):<{Server.HEADER}}".encode("utf-8") + response)
+                    connection[0].sendall(f"{len(response):<{Server.HEADER}}".encode("utf-8") + response)
                 else:
-                    connection.sendall((f"{len(response):<{Server.HEADER}}" + response).encode("utf-8"))
+                    connection[0].sendall((f"{len(response):<{Server.HEADER}}" + response).encode("utf-8"))
 
     def closeConnection(self, connection, msg = None):
         """closes a connection from a client, if msg is specified the server will send that msg and after will close the connection"""
