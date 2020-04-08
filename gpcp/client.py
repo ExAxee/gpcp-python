@@ -35,18 +35,20 @@ class Client:
             self.socket.sendall((f"{len(request):<{Client.HEADER}}" + request).encode("utf-8"))
 
         head = self.socket.recv(Client.HEADER) #read the header from a buffered request
-        byteCount = int(head)
-        data = self.socket.recv(byteCount) #read the actual message of len head
+        
+        if head:
+            byteCount = int(head)
+            data = self.socket.recv(byteCount) #read the actual message of len head
 
-        while len(data) < byteCount:
-            data += self.socket.recv( byteCount - len(data) )
+            while len(data) < byteCount:
+                data += self.socket.recv( byteCount - len(data) )
 
-        if handler is not None:
-            handler(self.socket, data)
-        elif self.default_handler is not None:
-            self.default_handler(self.socket, data)
-        else:
-            return data
+            if handler is not None:
+                handler(self.socket, data)
+            elif self.default_handler is not None:
+                self.default_handler(self.socket, data)
+            else:
+                return data
 
     def closeConnection(self, mode = "RW"):
         """closes the connection to the server, RW = read and write, R = read, W = write"""
