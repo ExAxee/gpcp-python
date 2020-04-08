@@ -26,7 +26,7 @@ class Client:
     def request(self, request, handler=None):
         """if handler is specified it will overwrite temporairly the default_handler"""
 
-        if not callable(handler):
+        if handler is not None and not callable(handler):
             raise ValueError(f"invalid option '{handler}' for handler, must be callable")
 
         if isinstance(request, bytes):
