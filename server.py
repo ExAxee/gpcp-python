@@ -45,9 +45,9 @@ class Server:
                 response = data_request_trigger(data, connection)
 
                 if isinstance(response, bytes):
-                    connection.sendall(bytes(f"{len(response):<{Server.HEADER}}") + response)
+                    connection.sendall(f"{len(response):<{Server.HEADER}}".encode("utf-8") + response)
                 else:
-                    connection.sendall(bytes(f"{len(response):<{Server.HEADER}}" + response))
+                    connection.sendall((f"{len(response):<{Server.HEADER}}" + response).encode("utf-8"))
 
     def closeConnection(self, connection, msg = None):
         """closes a connection from a client, if msg is specified the server will send that msg and after will close the connection"""
@@ -59,7 +59,7 @@ class Server:
         if (connection, connection.getpeername() ) not in self.connections:
             raise ValueError(f"connection {connection.getsockname()} is not a connection of this server")
         if msg:
-            connection.send(bytes(f"{len(msg):<{Server.HEADER}}" + msg))
+            connection.send((f"{len(msg):<{Server.HEADER}}" + msg).encode("utf-8"))
         self.connections.remove( (connection, connection.getpeername() ) )
         connection.shutdown(socket.SHUT_RDWR)
         connection.close()
