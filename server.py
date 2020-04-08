@@ -21,7 +21,7 @@ class Server:
             raise ValueError(f"invalid option '{port}' for port, must be integer")
         if not callable(data_request_trigger):
             raise ValueError(f"invalid option '{data_request_trigger}' for data_request_trigger, must be callable")
-        if not callable(connection_request_trigger):
+        if connection_request_trigger is not None and not callable(connection_request_trigger):
             raise ValueError(f"invalid option '{connection_request_trigger}' for connection_request_trigger, must be callable")
         if not isinstance(buffer, int):
             raise ValueError(f"invalid option '{buffer}' for buffer, must be integer")
