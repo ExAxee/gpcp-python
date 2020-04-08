@@ -1,7 +1,7 @@
+from .utils.utils import sendAll, HEADER
 import socket
 
 class Server:
-    HEADER = 4
 
     def __init__(self, reuse_addr=False):
         self.connections = []
@@ -36,7 +36,7 @@ class Server:
                 connection_request_trigger(connection, address)
 
             for connection in self.connections:
-                head = connection[0].recv(Server.HEADER) #read the header from a buffered request
+                head = connection[0].recv(HEADER) #read the header from a buffered request
                 
                 if head:
                     byteCount = int(head)
@@ -47,10 +47,7 @@ class Server:
     
                     response = data_request_trigger(data, connection)
 
-                    if isinstance(response, bytes):
-                        connection[0].sendall(f"{len(response):<{Server.HEADER}}".encode("utf-8") + response)
-                    else:
-                        connection[0].sendall((f"{len(response):<{Server.HEADER}}" + response).encode("utf-8"))
+                    sendAll(connection[0], response)
 
     def closeConnection(self, connection, msg = None):
         """closes a connection from a client, if msg is specified the server will send that msg and after will close the connection"""
@@ -62,7 +59,7 @@ class Server:
         if (connection, connection.getpeername() ) not in self.connections:
             raise ValueError(f"connection {connection.getsockname()} is not a connection of this server")
         if msg:
-            connection.send((f"{len(msg):<{Server.HEADER}}" + msg).encode("utf-8"))
+            connection.send((f"{len(msg):<{HEADER}}" + msg).encode("utf-8"))
         self.connections.remove( (connection, connection.getpeername() ) )
         connection.shutdown(socket.SHUT_RDWR)
         connection.close()

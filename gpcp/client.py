@@ -1,7 +1,7 @@
+from .utils.utils import sendAll, HEADER
 import socket
 
 class Client:
-    HEADER = 4
 
     def __init__(self, default_handler=None):
         """if default_handler is specified all responses to all requests will be handled by this callable"""
@@ -29,12 +29,9 @@ class Client:
         if handler is not None and not callable(handler):
             raise ValueError(f"invalid option '{handler}' for handler, must be callable")
 
-        if isinstance(request, bytes):
-            self.socket.sendall(f"{len(request):<{Client.HEADER}}".encode("utf-8") + request)
-        else:
-            self.socket.sendall((f"{len(request):<{Client.HEADER}}" + request).encode("utf-8"))
+        sendAll(self.socket, request)
 
-        head = self.socket.recv(Client.HEADER) #read the header from a buffered request
+        head = self.socket.recv(HEADER) #read the header from a buffered request
         
         if head:
             byteCount = int(head)
