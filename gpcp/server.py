@@ -6,6 +6,7 @@ class Server:
     def __init__(self, reuse_addr=False):
         self.connections = []
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.setblocking(False)
         if isinstance(reuse_addr, bool):
             if reuse_addr:
                 self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -30,21 +31,28 @@ class Server:
         self.socket.listen(buffer)
 
         while True:
-            connection, address = self.socket.accept()
-            self.connections.append( (connection, address) )
-            if connection_request_trigger != None:
-                connection_request_trigger(connection, address)
+            try:
+                connection, address = self.socket.accept()
+                connection.setblocking(False)
+                self.connections.append( (connection, address) )
+                if connection_request_trigger != None:
+                    connection_request_trigger(connection, address)
+            except BlockingIOError:
+                pass # there is no connection yet
 
             for connection in self.connections:
-                head = connection[0].recv(HEADER) #read the header from a buffered request
-                
+                try:
+                    head = connection[0].recv(HEADER) #read the header from a buffered request
+                except BlockingIOError:
+                    continue
+
                 if head:
                     byteCount = int(head)
                     data = connection[0].recv(byteCount) #read the actual message of len head
-                    
+
                     while len(data) < byteCount:
                         data += connection[0].recv( byteCount - len(data) )
-    
+
                     response = data_request_trigger(data, connection)
 
                     sendAll(connection[0], response)
