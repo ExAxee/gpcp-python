@@ -32,7 +32,7 @@ class Client:
         sendAll(self.socket, request)
 
         head = self.socket.recv(HEADER) #read the header from a buffered request
-        
+
         if head:
             byteCount = int(head)
             data = self.socket.recv(byteCount) #read the actual message of len head
