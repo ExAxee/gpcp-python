@@ -37,14 +37,14 @@ class Server:
 
             for connection in self.connections:
                 head = connection[0].recv(HEADER) #read the header from a buffered request
-                
+
                 if head:
                     byteCount = int(head)
                     data = connection[0].recv(byteCount) #read the actual message of len head
-                    
+
                     while len(data) < byteCount:
                         data += connection[0].recv( byteCount - len(data) )
-    
+
                     response = data_request_trigger(data, connection)
 
                     sendAll(connection[0], response)
