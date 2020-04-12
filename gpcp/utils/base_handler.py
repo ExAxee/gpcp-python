@@ -1,11 +1,11 @@
-from base_types import Integer, HexInteger, String, Bytes, Float
+from base_types import Integer, HexInteger, String, Bytes, Float, Array, Json
 from utils import ENCODING
 
 class BaseHandler:
 	def __init__(self):
 		# TODO use decorators to create function map at runtime
 		self.functionMap = {
-			"hello": (print, [Integer, HexInteger, String, Bytes, Float])
+			"hello": (print, [Json, HexInteger, String, Bytes, Float, Array(Integer)])
 		}
 		self.unknownCommandFunction = print
 
@@ -30,4 +30,4 @@ class BaseHandler:
 
 if __name__ == "__main__":
 	bh = BaseHandler()
-	bh.handleCommand(b"hello     5   0x10 ciao! ciaone 17.19")
+	bh.handleCommand(b'hello     {"a":true,"b":["1","2","3"],"c":{"d":5,"e":null}}   0x10 ciao! ciaone 17.19 [5,17,28]')
