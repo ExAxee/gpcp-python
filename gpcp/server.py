@@ -67,7 +67,7 @@ class Server:
         if (connection, connection.getpeername() ) not in self.connections:
             raise ValueError(f"connection {connection.getsockname()} is not a connection of this server")
         if msg:
-            connection.send((f"{len(msg):<{HEADER}}" + msg).encode("utf-8"))
+            connection.send((f"{len(msg):<{HEADER}}" + msg).encode(ENCODING))
         self.connections.remove( (connection, connection.getpeername() ) )
         connection.shutdown(socket.SHUT_RDWR)
         connection.close()
