@@ -1,9 +1,16 @@
 from .base_types import Integer, HexInteger, String, Bytes, Float, Array, Json
 from .utils import ENCODING
+import enum
 
 class BaseHandler:
 
     defaultFunctionMap = {"command":{}, "object": None, "file": None, "unknown": None}
+
+    class function_types(enum.Enum):
+        command = 0
+        object  = 1
+        file    = 2
+        unknown = 3
 
     def __init__(self):
         pass
@@ -17,25 +24,25 @@ class BaseHandler:
         self.functionMap = BaseHandler.defaultFunctionMap.copy() #copy the default function mapping
         for func in functionMapRaw:
 
-            if func.__gpcp_metadata__[0] == "command": #func.__gpcp_metadata__ = ("command", <command trigger>)
+            if func.__gpcp_metadata__[0] == BaseHandler.function_types.command: #func.__gpcp_metadata__ = ("command", <command trigger>)
                 if func.__gpcp_metadata__[1] not in self.functionMap["command"].keys():
                     self.functionMap["command"][func.__gpcp_metadata__[1]] = func
                 else:
                     raise ValueError(f"command {func.__gpcp_metadata__[1]} already registered and mapped to {self.functionMap['command'][func.__gpcp_metadata__[1]]}")
 
-            elif func.__gpcp_metadata__[0] == "object": #func.__gpcp_metadata__ = ("object")
+            elif func.__gpcp_metadata__[0] == BaseHandler.function_types.object: #func.__gpcp_metadata__ = ("object")
                 if self.functionMap["object"] is None:
                     self.functionMap["object"] = func
                 else:
                     raise ValueError(f"object handler already registered and mapped to {self.functionMap['object']}")
 
-            elif func.__gpcp_metadata__[0] == "file": #func.__gpcp_metadata__ = ("file")
+            elif func.__gpcp_metadata__[0] == BaseHandler.function_types.file: #func.__gpcp_metadata__ = ("file")
                 if self.functionMap["file"] is None:
                     self.functionMap["file"] = func
                 else:
                     raise ValueError(f"file handler already registered and mapped to {self.functionMap['file']}")
 
-            elif func.__gpcp_metadata__[0] == "unknown": #func.__gpcp_metadata__ = ("unknown")
+            elif func.__gpcp_metadata__[0] == BaseHandler.function_types.unknown: #func.__gpcp_metadata__ = ("unknown")
                 if self.functionMap["unknown"] is None:
                     self.functionMap["unknown"] = func
                 else:
