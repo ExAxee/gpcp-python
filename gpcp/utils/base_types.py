@@ -1,5 +1,5 @@
 from json import loads
-from utils import ENCODING
+from .utils import ENCODING
 
 class TypeBase:
     @staticmethod

@@ -1,5 +1,5 @@
-from base_types import Integer, HexInteger, String, Bytes, Float, Array, Json
-from utils import ENCODING
+from .base_types import Integer, HexInteger, String, Bytes, Float, Array, Json
+from .utils import ENCODING
 
 class BaseHandler:
     def __init__(self):
