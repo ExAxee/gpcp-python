@@ -1,4 +1,5 @@
-from .utils.utils import sendAll, HEADER
+from .utils.utils import sendAll, HEADER, ENCODING
+from .utils.base_handler import BaseHandler
 import socket
 
 class Server:
@@ -13,17 +14,13 @@ class Server:
         else:
             raise ValueError(f"invalid option '{reuse_addr}' for reuse_adrr, must be True or False")
 
-    def startServer(self, IP, port, data_request_trigger, connection_request_trigger=None, buffer=5):
+    def startServer(self, IP: str, port: int, handlerClass, buffer: int = 5):
         """start the server and open it for connections."""
 
         if not isinstance(IP, str):
             raise ValueError(f"invalid option '{IP}' for IP, must be string")
         if not isinstance(port, int):
             raise ValueError(f"invalid option '{port}' for port, must be integer")
-        if not callable(data_request_trigger):
-            raise ValueError(f"invalid option '{data_request_trigger}' for data_request_trigger, must be callable")
-        if connection_request_trigger is not None and not callable(connection_request_trigger):
-            raise ValueError(f"invalid option '{connection_request_trigger}' for connection_request_trigger, must be callable")
         if not isinstance(buffer, int):
             raise ValueError(f"invalid option '{buffer}' for buffer, must be integer")
 
@@ -34,28 +31,26 @@ class Server:
             try:
                 connection, address = self.socket.accept()
                 connection.setblocking(False)
-                self.connections.append( (connection, address) )
-                if connection_request_trigger != None:
-                    connection_request_trigger(connection, address)
+                handler = handlerClass()
+                self.connections.append( (connection, address, handler) )
             except BlockingIOError:
                 pass # there is no connection yet
 
-            for connection in self.connections:
+            for sock, address, handler in self.connections:
                 try:
-                    head = connection[0].recv(HEADER) #read the header from a buffered request
+                    head = sock.recv(HEADER) #read the header from a buffered request
                 except BlockingIOError:
                     continue
 
                 if head:
                     byteCount = int(head)
-                    data = connection[0].recv(byteCount) #read the actual message of len head
+                    data = sock.recv(byteCount) #read the actual message of len head
 
                     while len(data) < byteCount:
-                        data += connection[0].recv( byteCount - len(data) )
+                        data += sock.recv( byteCount - len(data) )
 
-                    response = data_request_trigger(data, connection)
-
-                    sendAll(connection[0], response)
+                    handler.handleCommand(data)
+                    sendAll(sock, b"")
 
     def closeConnection(self, connection, msg = None):
         """closes a connection from a client, if msg is specified the server will send that msg and after will close the connection"""
