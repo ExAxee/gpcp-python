@@ -2,12 +2,47 @@ from .base_types import Integer, HexInteger, String, Bytes, Float, Array, Json
 from .utils import ENCODING
 
 class BaseHandler:
+    
+    defaultFunctionMap = {"command":{}, "object": None, "file": None, "unknown": None}
+    
     def __init__(self):
-        # TODO use decorators to create function map at runtime
-        self.functionMap = {
-            "hello": (print, [Json, HexInteger, String, Bytes, Float, Array(Integer)])
-        }
-        self.unknownCommandFunction = print
+        pass
+
+    def load_handler(self):
+        """loads all handlers in a BaseHandler derivated object"""
+        
+        #get all function with a __gpcp_metadata__ value
+        functionMapRaw = [func for func in dir(self) if callable(getattr(self, func)) and hasattr(func, "__gpcp_metadata__")]
+
+        self.functionMap = BaseHandler.defaultFunctionMap.copy() #copy the default function mapping
+        for func in functionMapRaw:
+            
+            if func.__gpcp_metadata__[0] == "command": #func.__gpcp_metadata__ = ("command", <command trigger>)
+                if func.__gpcp_metadata__[1] not in self.functionMap["command"].keys():
+                    self.functionMap["command"][func.__gpcp_metadata__[1]] = func
+                else:
+                    raise ValueError(f"command {func.__gpcp_metadata__[1]} already registered and mapped to {self.functionMap['command'][func.__gpcp_metadata__[1]]}")
+            
+            elif func.__gpcp_metadata__[0] == "object": #func.__gpcp_metadata__ = ("object")
+                if self.functionMap["object"] is None:
+                    self.functionMap["object"] = func
+                else:
+                    raise ValueError(f"object handler already registered and mapped to {self.functionMap['object']}")
+            
+            elif func.__gpcp_metadata__[0] == "file": #func.__gpcp_metadata__ = ("file")
+                if self.functionMap["file"] is None:
+                    self.functionMap["file"] = func
+                else:
+                    raise ValueError(f"file handler already registered and mapped to {self.functionMap['file']}")
+            
+            elif func.__gpcp_metadata__[0] == "unknown": #func.__gpcp_metadata__ = ("unknown")
+                if self.functionMap["unknown"] is None:
+                    self.functionMap["unknown"] = func
+                else:
+                    raise ValueError(f"unknown handler already registered and mapped to {self.functionMap['unknown']}")
+            
+            else:
+                raise ValueError(f"error in __gpcp_metadata__'s value of {func}: {__gpcp_metadata__}")
 
     def handleCommand(self, command):
         parts = command.split(b" ")
