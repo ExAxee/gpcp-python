@@ -1,5 +1,5 @@
 from .base_handler import BaseHandler
-from .base_types import String, Integer, Float
+from .base_types import TypeBase, String
 
 def command(arg):
 	def getArgumentTypes(func):
@@ -8,15 +8,7 @@ def command(arg):
 		argumentTypes = []
 		for argName in func.__code__.co_varnames[2:]:
 			argumentType = typedArguments.get(argName, String)
-
-			if argumentType == int:
-				argumentType = Integer
-			elif argumentType == str:
-				argumentType = String
-			elif argumentType == float:
-				argumentType = Float
-
-			argumentTypes.append(argumentType)
+			argumentTypes.append(TypeBase.getIfBuiltIn(argumentType))
 
 		return argumentTypes
 

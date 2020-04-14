@@ -1,48 +1,73 @@
 from json import loads
 from .utils import ENCODING
 
+
 class TypeBase:
     @staticmethod
-    def fromString(str):
+    def fromString(string):
         raise NotImplementedError()
+
+    @staticmethod
+    def getIfBuiltIn(argumentType):
+        """
+        If needed converts built-in types into the corresponding TypeBase
+            :param argumentType: a type to convert if it's a built-in one
+        """
+
+        if argumentType == bytes:
+            return Bytes
+        if argumentType == str:
+            return String
+        if argumentType == int:
+            return Integer
+        if argumentType == float:
+            return Float
+        return argumentType
+
 
 class Bytes(TypeBase):
     @staticmethod
-    def fromString(str):
-        return str
+    def fromString(string):
+        return string
+
 
 class String(TypeBase):
     @staticmethod
-    def fromString(str):
-        return str.decode(ENCODING)
+    def fromString(string):
+        return string.decode(ENCODING)
+
 
 class Integer(TypeBase):
     @staticmethod
-    def fromString(str):
-        return int(str.decode(ENCODING), base=10)
+    def fromString(string):
+        return int(string.decode(ENCODING), base=10)
+
 
 class HexInteger(TypeBase):
     @staticmethod
-    def fromString(str):
-        return int(str.decode(ENCODING), base=16)
+    def fromString(string):
+        return int(string.decode(ENCODING), base=16)
+
 
 class Float(TypeBase):
     @staticmethod
-    def fromString(str):
-        return float(str.decode(ENCODING))
+    def fromString(string):
+        return float(string.decode(ENCODING))
+
 
 class Json(TypeBase):
     @staticmethod
-    def fromString(str):
-        return loads(str.decode(ENCODING))
+    def fromString(string):
+        return loads(string.decode(ENCODING))
+
 
 class Array(TypeBase):
     def __init__(self, elementType):
-        self.elementType = elementType
+        self.elementType = TypeBase.getIfBuiltIn(elementType)
 
-    def fromString(self, str):
-        if str[0] != ord("[") or str[-1] != ord("]"):
-            raise ValueError("Not an array: " + str.decode(ENCODING))
+    def fromString(self, string):
+        if string[0] != ord("[") or string[-1] != ord("]"):
+            raise ValueError("Not an array: " + string.decode(ENCODING))
 
-        parts = str[1:-1].split(b",")
+        parts = string[1:-1].split(b",")
         return [self.elementType.fromString(part) for part in parts]

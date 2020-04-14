@@ -1,5 +1,5 @@
-from .utils import ENCODING
 import enum
+from .utils import ENCODING
 
 class BaseHandler:
 
@@ -22,24 +22,31 @@ class BaseHandler:
 
         #get all function with a __gpcp_metadata__ value
         functionMapRaw = [func for func in [getattr(cls, func) for func in dir(cls)]
-            if callable(func) and hasattr(func, "__gpcp_metadata__")]
+                          if callable(func) and hasattr(func, "__gpcp_metadata__")]
 
         for func in functionMapRaw:
+            # func.__gpcp_metadata__ = (<functionType>, ...)
+            functionType = func.__gpcp_metadata__[0]
 
-            if func.__gpcp_metadata__[0] == cls.FunctionType.command: #func.__gpcp_metadata__ = ("command", <command trigger>)
-                if func.__gpcp_metadata__[1] not in cls.commandFunctions.keys():
-                    cls.commandFunctions[func.__gpcp_metadata__[1]] = (func, func.__gpcp_metadata__[2])
-                else:
-                    raise ValueError(f"command {func.__gpcp_metadata__[1]} already registered and mapped to {cls.commandFunctions[func.__gpcp_metadata__[1]]}")
+            if functionType == cls.FunctionType.command:
+                # func.__gpcp_metadata__ = (command, <command trigger>, [<type1>, <type2>, ...])
+                command, argumentTypes = func.__gpcp_metadata__[1:]
 
-            elif func.__gpcp_metadata__[0] == cls.FunctionType.unknown: #func.__gpcp_metadata__ = ("unknown")
-                if cls.unknownCommandFunction is None:
-                    cls.unknownCommandFunction = func
-                else:
-                    raise ValueError(f"unknown handler already registered and mapped to {cls.unknownCommandFunction}")
+                if command in cls.commandFunctions:
+                    raise ValueError(f"command {command} already registered and"
+                                     + f" mapped to {cls.commandFunctions[command]}")
+                cls.commandFunctions[command] = (func, argumentTypes)
+
+            elif functionType == cls.FunctionType.unknown:
+                # func.__gpcp_metadata__ = (unknown,)
+                if cls.unknownCommandFunction is not None:
+                    raise ValueError(f"handler for unknown commands already registered"
+                                     + f" and mapped to {cls.unknownCommandFunction}")
+                cls.unknownCommandFunction = func
 
             else:
-                raise ValueError(f"error in __gpcp_metadata__'s value of {func}: {func.__gpcp_metadata__}")
+                raise ValueError(f"invalid __gpcp_metadata__ for function"
+                                 + f" {func}: {func.__gpcp_metadata__}")
 
     def handleCommand(self, command):
         parts = command.split(b" ")
@@ -49,11 +56,11 @@ class BaseHandler:
         try:
             function, argumentTypes = self.commandFunctions[commandIdentifier]
         except KeyError:
-            if self.unknownCommandFunction is not None:
-                return self.unknownCommandFunction(commandIdentifier, parts[1:])
-            else:
+            if self.unknownCommandFunction is None:
                 return b"Unknown command" # TODO some other type of error handling
+            return self.unknownCommandFunction(commandIdentifier, parts[1:])
 
+        # convert parameters from `bytes` to the types of `function` arguments
         arguments = []
         for i in range(len(parts) - 1):
             arguments.append(argumentTypes[i].fromString(parts[i+1]))
