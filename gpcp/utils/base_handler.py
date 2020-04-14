@@ -1,4 +1,3 @@
-from .base_types import Integer, HexInteger, String, Bytes, Float, Array, Json
 from .utils import ENCODING
 import enum
 
@@ -29,7 +28,7 @@ class BaseHandler:
 
             if func.__gpcp_metadata__[0] == cls.FunctionType.command: #func.__gpcp_metadata__ = ("command", <command trigger>)
                 if func.__gpcp_metadata__[1] not in cls.commandFunctions.keys():
-                    cls.commandFunctions[func.__gpcp_metadata__[1]] = func
+                    cls.commandFunctions[func.__gpcp_metadata__[1]] = (func, func.__gpcp_metadata__[2])
                 else:
                     raise ValueError(f"command {func.__gpcp_metadata__[1]} already registered and mapped to {cls.commandFunctions[func.__gpcp_metadata__[1]]}")
 
@@ -45,22 +44,17 @@ class BaseHandler:
     def handleCommand(self, command):
         parts = command.split(b" ")
         parts = list(filter(None, parts)) # remove empty
-        functionIdentifier = parts[0].decode(ENCODING)
+        commandIdentifier = parts[0].decode(ENCODING)
 
         try:
-            function = self.commandFunctions[functionIdentifier]
+            function, argumentTypes = self.commandFunctions[commandIdentifier]
         except KeyError:
             if self.unknownCommandFunction is not None:
-                return self.unknownCommandFunction(functionIdentifier, parts[1:])
+                return self.unknownCommandFunction(commandIdentifier, parts[1:])
             else:
                 return b"Unknown command" # TODO some other type of error handling
 
         arguments = []
-        #for i in range(len(parts) - 1):
-        #    arguments.append(function[1][i].fromString(parts[i+1]))
-        #function[0](functionIdentifier, *arguments)
-        return function(self, functionIdentifier, *parts[1:])
-
-if __name__ == "__main__":
-    bh = BaseHandler()
-    bh.handleCommand(b'hello     {"a":true,"b":["1","2","3"],"c":{"d":5,"e":null}}   0x10 ciao! ciaone 17.19 [5,17,28]')
+        for i in range(len(parts) - 1):
+            arguments.append(argumentTypes[i].fromString(parts[i+1]))
+        return function(self, commandIdentifier, *arguments)
