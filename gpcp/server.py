@@ -23,6 +23,7 @@ class Server:
             raise ValueError(f"invalid option '{port}' for port, must be integer")
         if not isinstance(buffer, int):
             raise ValueError(f"invalid option '{buffer}' for buffer, must be integer")
+        handlerClass.loadHandlers()
 
         self.socket.bind( (IP, port) )
         self.socket.listen(buffer)
@@ -49,8 +50,7 @@ class Server:
                     while len(data) < byteCount:
                         data += sock.recv( byteCount - len(data) )
 
-                    handler.handleCommand(data)
-                    sendAll(sock, b"")
+                    sendAll(sock, handler.handleCommand(data))
 
     def closeConnection(self, connection, msg = None):
         """closes a connection from a client, if msg is specified the server will send that msg and after will close the connection"""
