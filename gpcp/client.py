@@ -17,6 +17,9 @@ class Client:
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
+    def __enter__(self):
+        return self
+
     def connect(self, host, port):
         """connect to a server"""
 
@@ -64,3 +67,9 @@ class Client:
             raise ValueError("close mode must be 'R' or 'W' or 'RW'")
 
         self.socket.close()
+
+    def __exit__(self, exc_type, exc_value, exc_tb):
+
+        self.closeConnection()
+        if exc_type and exc_value and exc_tb != None:
+            print(exc_type, "\n", exc_value, "\n", exc_tb)
