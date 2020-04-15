@@ -3,17 +3,29 @@ from .utils.utils import sendAll, HEADER, ENCODING
 
 class Server:
 
-    def __init__(self, reuse_addr=False):
+    def __init__(self, reuse_addr: bool = False):
+        self.handlerClass = None
         self.connections = []
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.setblocking(False)
-        if isinstance(reuse_addr, bool):
-            if reuse_addr:
-                self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        else:
-            raise ValueError(f"invalid option '{reuse_addr}' for reuse_adrr, must be True or False")
 
-    def startServer(self, IP: str, port: int, handlerClass, buffer: int = 5):
+        if not isinstance(reuse_addr, bool):
+            raise ValueError(f"invalid option '{reuse_addr}' for reuse_adrr, must be True or False")
+        if reuse_addr:
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+    def setHandlerClass(self, handlerClass: type):
+        if not hasattr(handlerClass, "loadHandlers") or not callable(handlerClass.loadHandlers):
+            raise ValueError(f"invalid option '{handlerClass}' for handler class,"
+                + " missing function 'loadHandlers'")
+        if not hasattr(handlerClass, "handleCommand") or not callable(handlerClass.handleCommand):
+            raise ValueError(f"invalid option '{handlerClass}' for handler class,"
+                + " missing function 'handleCommand'")
+
+        self.handlerClass = handlerClass
+        self.handlerClass.loadHandlers()
+
+    def startServer(self, IP: str, port: int, buffer: int = 5):
         """start the server and open it for connections."""
 
         if not isinstance(IP, str):
@@ -22,7 +34,8 @@ class Server:
             raise ValueError(f"invalid option '{port}' for port, must be integer")
         if not isinstance(buffer, int):
             raise ValueError(f"invalid option '{buffer}' for buffer, must be integer")
-        handlerClass.loadHandlers()
+        if self.handlerClass is None:
+            raise ValueError(f"'startServer' can be used only after 'setHandlerClass' was called")
 
         self.socket.bind((IP, port))
         self.socket.listen(buffer)
@@ -31,7 +44,7 @@ class Server:
             try:
                 connection, address = self.socket.accept()
                 connection.setblocking(False)
-                handler = handlerClass()
+                handler = self.handlerClass()
                 self.connections.append((connection, address, handler))
             except BlockingIOError:
                 pass # there is no connection yet
