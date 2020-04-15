@@ -1,6 +1,5 @@
-from .utils.utils import sendAll, HEADER, ENCODING
-from .utils.base_handler import BaseHandler
 import socket
+from .utils.utils import sendAll, HEADER, ENCODING
 
 class Server:
 
@@ -25,7 +24,7 @@ class Server:
             raise ValueError(f"invalid option '{buffer}' for buffer, must be integer")
         handlerClass.loadHandlers()
 
-        self.socket.bind( (IP, port) )
+        self.socket.bind((IP, port))
         self.socket.listen(buffer)
 
         while True:
@@ -33,7 +32,7 @@ class Server:
                 connection, address = self.socket.accept()
                 connection.setblocking(False)
                 handler = handlerClass()
-                self.connections.append( (connection, address, handler) )
+                self.connections.append((connection, address, handler))
             except BlockingIOError:
                 pass # there is no connection yet
 
@@ -48,22 +47,26 @@ class Server:
                     data = sock.recv(byteCount) #read the actual message of len head
 
                     while len(data) < byteCount:
-                        data += sock.recv( byteCount - len(data) )
+                        data += sock.recv(byteCount - len(data))
 
                     sendAll(sock, handler.handleCommand(data))
 
-    def closeConnection(self, connection, msg = None):
-        """closes a connection from a client, if msg is specified the server will send that msg and after will close the connection"""
+    def closeConnection(self, connection, msg=None):
+        """
+        Closes a connection from a client, if `msg` is specified
+        the server will send it and afterwards close the connection
+        """
 
         if msg:
             if not isinstance(msg, str):
                 raise ValueError(f"invalid option '{msg}' for msg, must be string")
 
-        if (connection, connection.getpeername() ) not in self.connections:
-            raise ValueError(f"connection {connection.getsockname()} is not a connection of this server")
+        if (connection, connection.getpeername()) not in self.connections:
+            raise ValueError(
+                f"connection {connection.getsockname()} is not a connection of this server")
         if msg:
             connection.send((f"{len(msg):<{HEADER}}" + msg).encode(ENCODING))
-        self.connections.remove( (connection, connection.getpeername() ) )
+        self.connections.remove((connection, connection.getpeername()))
         connection.shutdown(socket.SHUT_RDWR)
         connection.close()
 
