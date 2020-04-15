@@ -50,8 +50,7 @@ class BaseHandler:
                                  + f" {func}: {func.__gpcp_metadata__}")
 
     def handleCommand(self, command):
-        parts = command.split(b" ")
-        parts = list(filter(None, parts)) # remove empty
+        parts = command.split()
         commandIdentifier = parts[0].decode(ENCODING)
 
         try:
