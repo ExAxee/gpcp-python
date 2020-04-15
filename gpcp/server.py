@@ -14,6 +14,9 @@ class Server:
         if reuse_addr:
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
+    def __enter__(self):
+        return self
+
     def setHandlerClass(self, handlerClass: type):
         """
         Sets the handler class used as a factory to instantiate a handler for every connection
@@ -100,3 +103,9 @@ class Server:
 
     def __del__(self):
         self.stopServer()
+
+    def __exit__(self, exc_type, exc_value, exc_tb):
+
+        self.stopServer()
+        if exc_type and exc_value and exc_tb != None:
+            print(exc_type, "\n", exc_value, "\n", exc_tb)
