@@ -15,6 +15,11 @@ class Server:
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
     def setHandlerClass(self, handlerClass: type):
+        """
+        Sets the handler class used as a factory to instantiate a handler for every connection
+            :param handlerClass: the handler class, usually extending BaseHandler
+        """
+
         if not hasattr(handlerClass, "loadHandlers") or not callable(handlerClass.loadHandlers):
             raise ValueError(f"invalid option '{handlerClass}' for handler class,"
                 + " missing function 'loadHandlers'")
@@ -44,6 +49,10 @@ class Server:
             try:
                 connection, address = self.socket.accept()
                 connection.setblocking(False)
+
+                # Create a new handler using handlerClass as a factory.
+                # The handler can store whatever information it wants relatively to a
+                # connection, so it can't be used statically, but it must be instantiated
                 handler = self.handlerClass()
                 self.connections.append((connection, address, handler))
             except BlockingIOError:
@@ -62,6 +71,7 @@ class Server:
                     while len(data) < byteCount:
                         data += sock.recv(byteCount - len(data))
 
+                    # tell the handler for the current connection about the received command
                     sendAll(sock, handler.handleCommand(data))
 
     def closeConnection(self, connection, msg=None):
