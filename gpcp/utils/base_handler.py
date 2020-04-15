@@ -1,75 +1,70 @@
-from .base_types import Integer, HexInteger, String, Bytes, Float, Array, Json
-from .utils import ENCODING
 import enum
+from .utils import ENCODING
 
 class BaseHandler:
 
-    defaultFunctionMap = {"command":{}, "object": None, "file": None, "unknown": None}
 
-    class function_types(enum.Enum):
+    class FunctionType(enum.Enum):
         command = 0
-        object  = 1
-        file    = 2
-        unknown = 3
+        unknown = 1
 
     def __init__(self):
         pass
 
-    def load_handlers(self):
+    @classmethod
+    def loadHandlers(cls):
         """loads all handlers in a BaseHandler derivated object"""
 
+        if hasattr(cls, "commandFunctions") and isinstance(cls.commandFunctions, dict):
+            return # already loaded
+        cls.commandFunctions = {}
+        cls.unknownCommandFunction = None
+
         #get all function with a __gpcp_metadata__ value
-        functionMapRaw = [func for func in dir(self) if callable(getattr(self, func)) and hasattr(func, "__gpcp_metadata__")]
+        functionMapRaw = [func for func in [getattr(cls, func) for func in dir(cls)]
+                          if callable(func) and hasattr(func, "__gpcp_metadata__")]
 
-        self.functionMap = BaseHandler.defaultFunctionMap.copy() #copy the default function mapping
         for func in functionMapRaw:
+            # func.__gpcp_metadata__ = (<functionType>, ...)
+            functionType = func.__gpcp_metadata__[0]
 
-            if func.__gpcp_metadata__[0] == BaseHandler.function_types.command: #func.__gpcp_metadata__ = ("command", <command trigger>)
-                if func.__gpcp_metadata__[1] not in self.functionMap["command"].keys():
-                    self.functionMap["command"][func.__gpcp_metadata__[1]] = func
-                else:
-                    raise ValueError(f"command {func.__gpcp_metadata__[1]} already registered and mapped to {self.functionMap['command'][func.__gpcp_metadata__[1]]}")
+            if functionType == cls.FunctionType.command:
+                # func.__gpcp_metadata__ = (command, <command trigger>, <return type>
+                #   [<param 1 type>, < param 2 type>, ...])
+                command, returnType, argumentTypes = func.__gpcp_metadata__[1:]
 
-            elif func.__gpcp_metadata__[0] == BaseHandler.function_types.object: #func.__gpcp_metadata__ = ("object")
-                if self.functionMap["object"] is None:
-                    self.functionMap["object"] = func
-                else:
-                    raise ValueError(f"object handler already registered and mapped to {self.functionMap['object']}")
+                if command in cls.commandFunctions:
+                    raise ValueError(f"command {command} already registered and"
+                                     + f" mapped to {cls.commandFunctions[command]}")
+                cls.commandFunctions[command] = (func, returnType, argumentTypes)
 
-            elif func.__gpcp_metadata__[0] == BaseHandler.function_types.file: #func.__gpcp_metadata__ = ("file")
-                if self.functionMap["file"] is None:
-                    self.functionMap["file"] = func
-                else:
-                    raise ValueError(f"file handler already registered and mapped to {self.functionMap['file']}")
-
-            elif func.__gpcp_metadata__[0] == BaseHandler.function_types.unknown: #func.__gpcp_metadata__ = ("unknown")
-                if self.functionMap["unknown"] is None:
-                    self.functionMap["unknown"] = func
-                else:
-                    raise ValueError(f"unknown handler already registered and mapped to {self.functionMap['unknown']}")
+            elif functionType == cls.FunctionType.unknown:
+                # func.__gpcp_metadata__ = (unknown,)
+                if cls.unknownCommandFunction is not None:
+                    raise ValueError(f"handler for unknown commands already registered"
+                                     + f" and mapped to {cls.unknownCommandFunction}")
+                cls.unknownCommandFunction = func
 
             else:
-                raise ValueError(f"error in __gpcp_metadata__'s value of {func}: {__gpcp_metadata__}")
+                raise ValueError(f"invalid __gpcp_metadata__ for function"
+                                 + f" {func}: {func.__gpcp_metadata__}")
 
     def handleCommand(self, command):
-        parts = command.split(b" ")
-        parts = list(filter(None, parts)) # remove empty
-        functionIdentifier = parts[0].decode(ENCODING)
+        parts = command.split()
+        commandIdentifier = parts[0].decode(ENCODING)
 
         try:
-            function = self.functionMap[functionIdentifier]
+            function, returnType, argumentTypes = self.commandFunctions[commandIdentifier]
         except KeyError:
-            if self.unknownCommandFunction:
-                self.unknownCommandFunction(functionIdentifier, parts[1:])
-            else:
-                pass # TODO some other type of error handling
-            return
+            if self.unknownCommandFunction is None:
+                return b"Unknown command" # TODO some other type of error handling
+            return self.unknownCommandFunction(commandIdentifier, parts[1:])
 
+        # convert parameters from `bytes` to the types of `function` arguments
         arguments = []
         for i in range(len(parts) - 1):
-            arguments.append(function[1][i].fromString(parts[i+1]))
-        function[0](functionIdentifier, *arguments)
+            arguments.append(argumentTypes[i].fromBytes(parts[i+1]))
 
-if __name__ == "__main__":
-    bh = BaseHandler()
-    bh.handleCommand(b'hello     {"a":true,"b":["1","2","3"],"c":{"d":5,"e":null}}   0x10 ciao! ciaone 17.19 [5,17,28]')
+        # convert the return value to `bytes` from the specified type
+        returnValue = function(self, commandIdentifier, *arguments)
+        return returnType.toBytes(returnValue)
