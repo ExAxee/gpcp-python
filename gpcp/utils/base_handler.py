@@ -1,5 +1,6 @@
 import enum
 from .utils import ENCODING
+from .filters import command
 
 class BaseHandler:
 
@@ -68,3 +69,8 @@ class BaseHandler:
         # convert the return value to `bytes` from the specified type
         returnValue = function(self, commandIdentifier, *arguments)
         return returnType.toBytes(returnValue)
+
+    @command
+    def requestCommands(self)
+        """requests the commands list from the server and returns it."""
+        return list( [command for command in self.commandFunctions.keys()] )

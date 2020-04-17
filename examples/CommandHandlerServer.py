@@ -9,12 +9,12 @@ class Handler(BaseHandler): #inherit base properties
     #when there is only command the name of the function
     #will be the same as the funciton call
     @command 
-    def echo(handler, cmd, *args): #the handler will return always something
+    def echo(self, cmd, *args): #the handler will return always something
         print(*args)
         return str(*args, "utf-8").upper()
 
     @command("start")
-    def my_func(handler, cmd, param):
+    def my_func(self, cmd, param):
         #if you want that the function requires only one parameter you can
         #define only one argument, but it will throw an error if you give it
         #more than the number defined 
@@ -27,7 +27,7 @@ class Handler(BaseHandler): #inherit base properties
     #unknownCommand is called every time a command was not registered on the
     #handler and the server does not know what to do
     @unknownCommand
-    def boh(handler, cmd, *args):
+    def boh(self, cmd, *args):
         print(cmd, *args)
         return "unknown"
 
