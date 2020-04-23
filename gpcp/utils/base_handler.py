@@ -50,7 +50,7 @@ class BaseHandler:
                 raise ValueError(f"invalid __gpcp_metadata__ for function"
                                  + f" {func}: {func.__gpcp_metadata__}")
 
-    def handleCommand(self, command):
+    def handleData(self, command):
         parts = command.split()
         commandIdentifier = parts[0].decode(ENCODING)
 

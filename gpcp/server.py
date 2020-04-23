@@ -1,5 +1,5 @@
 import socket
-from .utils.utils import sendAll, HEADER, ENCODING
+from .utils.utils import sendAll, Packet
 
 class Server:
 
@@ -64,7 +64,7 @@ class Server:
 
             for sock, address, handler in self.connections:
                 try:
-                    head = sock.recv(HEADER) #read the header from a buffered request
+                    head = sock.recv(Packet.HEADER) #read the header from a buffered request
                 except BlockingIOError:
                     continue
 
@@ -92,7 +92,7 @@ class Server:
             raise ValueError(
                 f"connection {connection.getsockname()} is not a connection of this server")
         if msg:
-            connection.send((f"{len(msg):<{HEADER}}" + msg).encode(ENCODING))
+            connection.send((f"{len(msg):<{Packet.HEADER}}" + msg).encode(Packet.ENCODING))
         self.connections.remove((connection, connection.getpeername()))
         connection.shutdown(socket.SHUT_RDWR)
         connection.close()
