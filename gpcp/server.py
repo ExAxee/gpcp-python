@@ -10,7 +10,7 @@ class Server:
         self.socket.setblocking(False)
 
         if not isinstance(reuse_addr, bool):
-            raise ValueError(f"invalid option '{reuse_addr}' for reuse_adrr, must be True or False")
+            raise ValueError(f"invalid option '{reuse_addr}' for reuse_addr, must be True or False")
         if reuse_addr:
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
@@ -22,16 +22,17 @@ class Server:
         Sets the handler class used as a factory to instantiate a handler for every connection
             :param handlerClass: the handler class, usually extending BaseHandler
         """
-
-        if not hasattr(handlerClass, "loadHandlers") or not callable(handlerClass.loadHandlers):
-            raise ValueError(f"invalid option '{handlerClass}' for handler class,"
-                + " missing function 'loadHandlers'")
-        if not hasattr(handlerClass, "handleCommand") or not callable(handlerClass.handleCommand):
-            raise ValueError(f"invalid option '{handlerClass}' for handler class,"
-                + " missing function 'handleCommand'")
-
         self.handlerClass = handlerClass
-        self.handlerClass.loadHandlers()
+
+        if hasattr(handlerClass, "loadHandlers"):
+            if callable(handlerClass.loadHandlers):
+                self.handlerClass.loadHandlers()
+            else:
+                raise ValueError(f"invalid option '{handlerClass}' for handler class,"
+                    + " 'loadHandlers' is not callable")
+        if not hasattr(handlerClass, "handleData") or not callable(handlerClass.handleData):
+            raise ValueError(f"invalid option '{handlerClass}' for handler class,"
+                + " missing function 'handleData'")
 
     def startServer(self, IP: str, port: int, buffer: int = 5):
         """start the server and open it for connections."""
@@ -75,7 +76,7 @@ class Server:
                         data += sock.recv(byteCount - len(data))
 
                     # tell the handler for the current connection about the received command
-                    sendAll(sock, handler.handleCommand(data))
+                    sendAll(sock, handler.handleData(data))
 
     def closeConnection(self, connection, msg=None):
         """
