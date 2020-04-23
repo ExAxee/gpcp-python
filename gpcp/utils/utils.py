@@ -1,8 +1,5 @@
 """utilities module containing all function used by more than one script"""
 
-HEADER = 4
-ENCODING = "utf-8"
-
 def sendAll(connection, data):
     """sends all data, this is not the default socket.sendall() function"""
 
@@ -14,3 +11,9 @@ def sendAll(connection, data):
     while data:
         sent = connection.send(data)
         data = data[sent:]
+
+class Packet:
+    """Packet object"""
+    
+    HEADER = 8
+    ENCODING = "utf-8"

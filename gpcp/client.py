@@ -1,5 +1,5 @@
 import socket
-from .utils.utils import sendAll, HEADER
+from .utils.utils import sendAll, Packet
 
 class Client:
 
@@ -38,7 +38,7 @@ class Client:
 
         sendAll(self.socket, request)
 
-        head = self.socket.recv(HEADER) #read the header from a buffered request
+        head = self.socket.recv(Packet.HEADER) #read the header from a buffered request
 
         if head:
             byteCount = int(head)
