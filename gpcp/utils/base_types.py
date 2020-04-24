@@ -1,5 +1,5 @@
 import json
-from gpcp.utils.utils import Packet
+from gpcp.utils import packet
 
 
 class TypeBase:
@@ -21,57 +21,57 @@ class Bytes(TypeBase):
 
     @staticmethod
     def toBytes(value):
-        return str(value).encode(Packet.ENCODING)
+        return str(value).encode(packet.ENCODING)
 
 
 class String(TypeBase):
     @staticmethod
     def fromBytes(string):
-        return string.decode(Packet.ENCODING)
+        return string.decode(packet.ENCODING)
 
     @staticmethod
     def toBytes(value):
-        return value.encode(Packet.ENCODING)
+        return value.encode(packet.ENCODING)
 
 
 class Integer(TypeBase):
     @staticmethod
     def fromBytes(string):
-        return int(string.decode(Packet.ENCODING), base=10)
+        return int(string.decode(packet.ENCODING), base=10)
 
     @staticmethod
     def toBytes(value):
-        return str(value).encode(Packet.ENCODING)
+        return str(value).encode(packet.ENCODING)
 
 
 class HexInteger(TypeBase):
     @staticmethod
     def fromBytes(string):
-        return int(string.decode(Packet.ENCODING), base=16)
+        return int(string.decode(packet.ENCODING), base=16)
 
     @staticmethod
     def toBytes(value):
-        return hex(value).encode(Packet.ENCODING)
+        return hex(value).encode(packet.ENCODING)
 
 
 class Float(TypeBase):
     @staticmethod
     def fromBytes(string):
-        return float(string.decode(Packet.ENCODING))
+        return float(string.decode(packet.ENCODING))
 
     @staticmethod
     def toBytes(value):
-        return str(value).encode(Packet.ENCODING)
+        return str(value).encode(packet.ENCODING)
 
 
 class Json(TypeBase):
     @staticmethod
     def fromBytes(string):
-        return json.loads(string.decode(Packet.ENCODING))
+        return json.loads(string.decode(packet.ENCODING))
 
     @staticmethod
     def toBytes(value):
-        return json.dumps(value).encode(Packet.ENCODING)
+        return json.dumps(value).encode(packet.ENCODING)
 
 
 def getIfBuiltIn(argumentType):

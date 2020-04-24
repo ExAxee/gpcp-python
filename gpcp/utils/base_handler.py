@@ -1,5 +1,5 @@
 import json
-from gpcp.utils.utils import Packet
+from gpcp.utils import packet
 from gpcp.utils.filters import command, FunctionType
 from gpcp.utils.base_types import toId
 
@@ -48,7 +48,7 @@ class BaseHandler:
 
     def handleData(self, command):
         parts = command.split()
-        commandIdentifier = parts[0].decode(Packet.ENCODING)
+        commandIdentifier = parts[0].decode(packet.ENCODING)
 
         try:
             function, _, returnType, arguments = self.commandFunctions[commandIdentifier]
@@ -58,13 +58,13 @@ class BaseHandler:
             return self.unknownCommandFunction(commandIdentifier, parts[1:])
 
         # convert parameters from `bytes` to the types of `function` arguments
-        arguments = []
+        convertedArguments = []
         for i in range(len(parts) - 1):
             argType, _ = arguments[i]
-            arguments.append(argType.fromBytes(parts[i+1]))
+            convertedArguments.append(argType.fromBytes(parts[i+1]))
 
         # convert the return value to `bytes` from the specified type
-        returnValue = function(self, commandIdentifier, *arguments)
+        returnValue = function(self, commandIdentifier, *convertedArguments)
         return returnType.toBytes(returnValue)
 
     @command
