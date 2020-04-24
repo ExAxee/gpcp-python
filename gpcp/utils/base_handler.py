@@ -28,12 +28,12 @@ class BaseHandler:
             if functionType == FunctionType.command:
                 # func.__gpcp_metadata__ = (command, <command trigger>, <description>, <return type>
                 #   [(<param 1 type>, <param 1 name>), (<param 2 type>, <param 2 name>), ...])
-                command, description, returnType, arguments = func.__gpcp_metadata__[1:]
+                commandTrigger, description, returnType, arguments = func.__gpcp_metadata__[1:]
 
-                if command in cls.commandFunctions:
-                    raise ValueError(f"command {command} already registered and"
-                                     + f" mapped to {cls.commandFunctions[command]}")
-                cls.commandFunctions[command] = (func, description, returnType, arguments)
+                if commandTrigger in cls.commandFunctions:
+                    raise ValueError(f"command {commandTrigger} already registered and"
+                                     + f" mapped to {cls.commandFunctions[commandTrigger]}")
+                cls.commandFunctions[commandTrigger] = (func, description, returnType, arguments)
 
             elif functionType == FunctionType.unknown:
                 # func.__gpcp_metadata__ = (unknown,)
@@ -46,8 +46,8 @@ class BaseHandler:
                 raise ValueError(f"invalid __gpcp_metadata__ for function"
                                  + f" {func}: {func.__gpcp_metadata__}")
 
-    def handleData(self, command):
-        parts = command.split()
+    def handleData(self, data):
+        parts = data.split()
         commandIdentifier = parts[0].decode(packet.ENCODING)
 
         try:
@@ -68,17 +68,18 @@ class BaseHandler:
         return returnType.toBytes(returnValue)
 
     @command
-    def requestCommands(self, commandIdentifier):
+    def requestCommands(self, _):
         """requests the commands list from the server and returns it."""
 
         serializedCommands = []
-        for name, metadata in self.commandFunctions.items():
+        for commandTrigger, metadata in self.commandFunctions.items():
             _, description, returnType, arguments = metadata
 
             serializedCommands.append({
-                "arguments": [{"name": argName, "type": toId(argType)} for argType, argName in arguments],
+                "arguments": [{"name": argName, "type": toId(argType)}
+                              for argType, argName in arguments],
                 "return_type": toId(returnType),
-                "name": name,
+                "name": commandTrigger,
                 "description": description,
             })
 
