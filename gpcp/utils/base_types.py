@@ -92,12 +92,12 @@ def getIfBuiltIn(argumentType):
 
 allTypesArray = [Bytes, String, Integer, HexInteger, Float, Json]
 
-def getFromId(id: int):
+def getFromId(integerId: int):
     """
     Returns the BaseType corresponding to id, by looking into the `allTypesArray` array
-        :param id: an int smaller than the size of the array
+        :param integerId: an int smaller than the size of the array
     """
-    return allTypesArray[id]
+    return allTypesArray[integerId]
 
 def toId(baseType: type):
     """

@@ -29,10 +29,10 @@ class Server:
                 self.handlerClass.loadHandlers()
             else:
                 raise ValueError(f"invalid option '{handlerClass}' for handler class,"
-                    + " 'loadHandlers' is not callable")
+                                 + " 'loadHandlers' is not callable")
         if not hasattr(handlerClass, "handleData") or not callable(handlerClass.handleData):
             raise ValueError(f"invalid option '{handlerClass}' for handler class,"
-                + " missing function 'handleData'")
+                             + " missing function 'handleData'")
 
     def startServer(self, IP: str, port: int, buffer: int = 5):
         """start the server and open it for connections."""
@@ -103,5 +103,5 @@ class Server:
 
     def __exit__(self, exc_type, exc_value, exc_tb):
         self.stopServer()
-        if exc_type and exc_value and exc_tb != None:
+        if exc_type and exc_value and exc_tb is not None:
             print(exc_type, "\n", exc_value, "\n", exc_tb)

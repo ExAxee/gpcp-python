@@ -62,5 +62,5 @@ class Client:
     def __exit__(self, exc_type, exc_value, exc_tb):
 
         self.closeConnection()
-        if exc_type and exc_value and exc_tb != None:
+        if exc_type and exc_value and exc_tb is not None:
             print(exc_type, "\n", exc_value, "\n", exc_tb)
