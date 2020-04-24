@@ -106,7 +106,6 @@ class Server:
         self.stopServer()
 
     def __exit__(self, exc_type, exc_value, exc_tb):
-
         self.stopServer()
         if exc_type and exc_value and exc_tb != None:
             print(exc_type, "\n", exc_value, "\n", exc_tb)
