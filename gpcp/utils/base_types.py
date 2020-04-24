@@ -1,5 +1,5 @@
 import json
-from .utils import ENCODING
+from gpcp.utils.utils import Packet
 
 
 class TypeBase:
@@ -13,24 +13,6 @@ class TypeBase:
     def toBytes(value):
         return NotImplementedError()
 
-    # utility method (NOT to override)
-    @staticmethod
-    def getIfBuiltIn(argumentType):
-        """
-        If needed converts built-in types into the corresponding TypeBase
-            :param argumentType: a type to convert if it's a built-in one
-        """
-
-        if argumentType == bytes:
-            return Bytes
-        if argumentType == str:
-            return String
-        if argumentType == int:
-            return Integer
-        if argumentType == float:
-            return Float
-        return argumentType
-
 
 class Bytes(TypeBase):
     @staticmethod
@@ -39,69 +21,87 @@ class Bytes(TypeBase):
 
     @staticmethod
     def toBytes(value):
-        return str(value).encode(ENCODING)
+        return str(value).encode(Packet.ENCODING)
 
 
 class String(TypeBase):
     @staticmethod
     def fromBytes(string):
-        return string.decode(ENCODING)
+        return string.decode(Packet.ENCODING)
 
     @staticmethod
     def toBytes(value):
-        return value.encode(ENCODING)
+        return value.encode(Packet.ENCODING)
 
 
 class Integer(TypeBase):
     @staticmethod
     def fromBytes(string):
-        return int(string.decode(ENCODING), base=10)
+        return int(string.decode(Packet.ENCODING), base=10)
 
     @staticmethod
     def toBytes(value):
-        return str(value).encode(ENCODING)
+        return str(value).encode(Packet.ENCODING)
 
 
 class HexInteger(TypeBase):
     @staticmethod
     def fromBytes(string):
-        return int(string.decode(ENCODING), base=16)
+        return int(string.decode(Packet.ENCODING), base=16)
 
     @staticmethod
     def toBytes(value):
-        return hex(value).encode(ENCODING)
+        return hex(value).encode(Packet.ENCODING)
 
 
 class Float(TypeBase):
     @staticmethod
     def fromBytes(string):
-        return float(string.decode(ENCODING))
+        return float(string.decode(Packet.ENCODING))
 
     @staticmethod
     def toBytes(value):
-        return str(value).encode(ENCODING)
+        return str(value).encode(Packet.ENCODING)
 
 
 class Json(TypeBase):
     @staticmethod
     def fromBytes(string):
-        return json.loads(string.decode(ENCODING))
+        return json.loads(string.decode(Packet.ENCODING))
 
     @staticmethod
     def toBytes(value):
-        return json.dumps(value).encode(ENCODING)
+        return json.dumps(value).encode(Packet.ENCODING)
 
 
-class Array(TypeBase):
-    def __init__(self, elementType):
-        self.elementType = TypeBase.getIfBuiltIn(elementType)
+def getIfBuiltIn(argumentType):
+    """
+    If needed converts built-in types into the corresponding TypeBase
+        :param argumentType: a type to convert if it's a built-in one
+    """
 
-    def fromBytes(self, string):
-        if string[0] != ord("[") or string[-1] != ord("]"):
-            raise ValueError("Not an array: " + string.decode(ENCODING))
+    if argumentType == bytes:
+        return Bytes
+    if argumentType == str:
+        return String
+    if argumentType == int:
+        return Integer
+    if argumentType == float:
+        return Float
+    return argumentType
 
-        parts = string[1:-1].split(b",")
-        return [self.elementType.fromBytes(part) for part in parts]
+allTypesArray = [Bytes, String, Integer, HexInteger, Float, Json]
 
-    def toBytes(self, value):
-        return f"[{','.join([self.elementType.toBytes(el) for el in value])}]".encode(ENCODING)
+def getFromId(id: int):
+    """
+    Returns the BaseType corresponding to id, by looking into the `allTypesArray` array
+        :param id: an int smaller than the size of the array
+    """
+    return allTypesArray[id]
+
+def toId(baseType: type):
+    """
+    Returns the id corresponding to the BaseType, by taking its index in the `allTypesArray` array
+        :param baseType: a BaseType existing in the array
+    """
+    return allTypesArray.index(baseType)
