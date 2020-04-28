@@ -1,7 +1,6 @@
 import json
 from gpcp.utils import packet
 
-
 class TypeBase:
     # method to override
     @staticmethod
