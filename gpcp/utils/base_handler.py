@@ -1,12 +1,9 @@
-import enum
-from .filters import command
+import json
+from gpcp.utils import packet
+from gpcp.utils.filters import command, FunctionType
+from gpcp.utils.base_types import toId
 
 class BaseHandler:
-
-
-    class FunctionType(enum.Enum):
-        command = 0
-        unknown = 1
 
     def __init__(self):
         pass
@@ -28,17 +25,17 @@ class BaseHandler:
             # func.__gpcp_metadata__ = (<functionType>, ...)
             functionType = func.__gpcp_metadata__[0]
 
-            if functionType == cls.FunctionType.command:
-                # func.__gpcp_metadata__ = (command, <command trigger>, <return type>
-                #   [<param 1 type>, < param 2 type>, ...])
-                command, returnType, argumentTypes = func.__gpcp_metadata__[1:]
+            if functionType == FunctionType.command:
+                # func.__gpcp_metadata__ = (command, <command trigger>, <description>, <return type>
+                #   [(<param 1 type>, <param 1 name>), (<param 2 type>, <param 2 name>), ...])
+                commandTrigger, description, returnType, arguments = func.__gpcp_metadata__[1:]
 
-                if command in cls.commandFunctions:
-                    raise ValueError(f"command {command} already registered and"
-                                     + f" mapped to {cls.commandFunctions[command]}")
-                cls.commandFunctions[command] = (func, returnType, argumentTypes)
+                if commandTrigger in cls.commandFunctions:
+                    raise ValueError(f"command {commandTrigger} already registered and"
+                                     + f" mapped to {cls.commandFunctions[commandTrigger]}")
+                cls.commandFunctions[commandTrigger] = (func, description, returnType, arguments)
 
-            elif functionType == cls.FunctionType.unknown:
+            elif functionType == FunctionType.unknown:
                 # func.__gpcp_metadata__ = (unknown,)
                 if cls.unknownCommandFunction is not None:
                     raise ValueError(f"handler for unknown commands already registered"
@@ -49,27 +46,41 @@ class BaseHandler:
                 raise ValueError(f"invalid __gpcp_metadata__ for function"
                                  + f" {func}: {func.__gpcp_metadata__}")
 
-    def handleData(self, command):
-        parts = command.split()
-        commandIdentifier = parts[0].decode(ENCODING)
+    def handleData(self, data):
+        parts = data.split()
+        commandIdentifier = parts[0].decode(packet.ENCODING)
 
         try:
-            function, returnType, argumentTypes = self.commandFunctions[commandIdentifier]
+            function, _, returnType, arguments = self.commandFunctions[commandIdentifier]
         except KeyError:
             if self.unknownCommandFunction is None:
                 return b"Unknown command" # TODO some other type of error handling
             return self.unknownCommandFunction(commandIdentifier, parts[1:])
 
         # convert parameters from `bytes` to the types of `function` arguments
-        arguments = []
+        convertedArguments = []
         for i in range(len(parts) - 1):
-            arguments.append(argumentTypes[i].fromBytes(parts[i+1]))
+            argType, _ = arguments[i]
+            convertedArguments.append(argType.fromBytes(parts[i+1]))
 
         # convert the return value to `bytes` from the specified type
-        returnValue = function(self, commandIdentifier, *arguments)
+        returnValue = function(self, commandIdentifier, *convertedArguments)
         return returnType.toBytes(returnValue)
 
     @command
-    def requestCommands(self)
+    def requestCommands(self, _):
         """requests the commands list from the server and returns it."""
-        return list( [command for command in self.commandFunctions.keys()] )
+
+        serializedCommands = []
+        for commandTrigger, metadata in self.commandFunctions.items():
+            _, description, returnType, arguments = metadata
+
+            serializedCommands.append({
+                "arguments": [{"name": argName, "type": toId(argType)}
+                              for argType, argName in arguments],
+                "return_type": toId(returnType),
+                "name": commandTrigger,
+                "description": description,
+            })
+
+        return json.dumps(serializedCommands)

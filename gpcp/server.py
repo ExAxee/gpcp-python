@@ -1,5 +1,6 @@
 import socket
-from .utils.utils import sendAll, Packet
+from gpcp.utils import packet
+
 class Server:
 
     def __init__(self, reuse_addr: bool = False):
@@ -28,10 +29,10 @@ class Server:
                 self.handlerClass.loadHandlers()
             else:
                 raise ValueError(f"invalid option '{handlerClass}' for handler class,"
-                    + " 'loadHandlers' is not callable")
+                                 + " 'loadHandlers' is not callable")
         if not hasattr(handlerClass, "handleData") or not callable(handlerClass.handleData):
             raise ValueError(f"invalid option '{handlerClass}' for handler class,"
-                + " missing function 'handleData'")
+                             + " missing function 'handleData'")
 
     def startServer(self, IP: str, port: int, buffer: int = 5):
         """start the server and open it for connections."""
@@ -63,19 +64,14 @@ class Server:
 
             for sock, address, handler in self.connections:
                 try:
-                    head = sock.recv(Packet.HEADER) #read the header from a buffered request
+                    data = packet.receiveAll(sock)
+                    if data is not None:
+                        # tell the handler for the current connection about the received command
+                        packet.sendAll(sock, handler.handleData(data))
+
                 except BlockingIOError:
                     continue
 
-                if head:
-                    byteCount = int(head)
-                    data = sock.recv(byteCount) #read the actual message of len head
-
-                    while len(data) < byteCount:
-                        data += sock.recv(byteCount - len(data))
-
-                    # tell the handler for the current connection about the received command
-                    sendAll(sock, handler.handleData(data))
 
     def closeConnection(self, connection, msg=None):
         """
@@ -84,14 +80,15 @@ class Server:
         """
 
         if msg:
-            if not isinstance(msg, str):
+            if not isinstance(msg, str) and not isinstance(msg, bytes):
                 raise ValueError(f"invalid option '{msg}' for msg, must be string")
-
         if (connection, connection.getpeername()) not in self.connections:
             raise ValueError(
                 f"connection {connection.getsockname()} is not a connection of this server")
+
         if msg:
-            connection.send((f"{len(msg):<{Packet.HEADER}}" + msg).encode(Packet.ENCODING))
+            packet.sendAll(connection, msg)
+
         self.connections.remove((connection, connection.getpeername()))
         connection.shutdown(socket.SHUT_RDWR)
         connection.close()
@@ -105,7 +102,6 @@ class Server:
         self.stopServer()
 
     def __exit__(self, exc_type, exc_value, exc_tb):
-
         self.stopServer()
-        if exc_type and exc_value and exc_tb != None:
+        if exc_type and exc_value and exc_tb is not None:
             print(exc_type, "\n", exc_value, "\n", exc_tb)

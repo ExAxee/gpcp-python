@@ -1,5 +1,9 @@
-from .base_handler import BaseHandler
-from .base_types import TypeBase, Bytes
+import enum
+from gpcp.utils.base_types import getIfBuiltIn, Bytes
+
+class FunctionType(enum.Enum):
+    command = 0
+    unknown = 1
 
 def command(arg):
     """
@@ -21,9 +25,9 @@ def command(arg):
         typedArguments = func.__annotations__
         argumentTypes = []
 
-        for argName in func.__code__.co_varnames[2:]:
+        for argName in func.__code__.co_varnames[2:func.__code__.co_argcount]:
             argumentType = typedArguments.get(argName, Bytes)
-            argumentTypes.append(TypeBase.getIfBuiltIn(argumentType))
+            argumentTypes.append((getIfBuiltIn(argumentType), argName))
 
         return argumentTypes
 
@@ -34,22 +38,22 @@ def command(arg):
         """
 
         returnType = func.__annotations__.get("return", Bytes)
-        return TypeBase.getIfBuiltIn(returnType)
+        return getIfBuiltIn(returnType)
 
 
     if callable(arg):
         # `@command` used without parameters
-        arg.__gpcp_metadata__ = (BaseHandler.FunctionType.command,
-                                 arg.__name__, getReturnType(arg), getArgumentTypes(arg))
+        arg.__gpcp_metadata__ = (FunctionType.command, arg.__name__,
+                                 arg.__doc__, getReturnType(arg), getArgumentTypes(arg))
         return arg
 
     # `@command` used with name parameter (e.g. @command("start"))
     def wrapper(func):
-        func.__gpcp_metadata__ = (BaseHandler.FunctionType.command,
-                                  arg, getReturnType(func), getArgumentTypes(func))
+        func.__gpcp_metadata__ = (FunctionType.command, arg,
+                                  func.__doc__, getReturnType(func), getArgumentTypes(func))
         return func
     return wrapper # the returned function when called adds the metadata to `func` and returns it
 
 def unknownCommand(func):
-    func.__gpcp_metadata__ = (BaseHandler.FunctionType.unknown,)
+    func.__gpcp_metadata__ = (FunctionType.unknown,)
     return func
