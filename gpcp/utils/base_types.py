@@ -1,5 +1,4 @@
 import json
-from .utils import ENCODING
 
 
 class TypeBase:

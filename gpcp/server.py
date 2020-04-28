@@ -1,6 +1,5 @@
 import socket
 from .utils.utils import sendAll, Packet
-
 class Server:
 
     def __init__(self, reuse_addr: bool = False):

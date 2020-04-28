@@ -1,5 +1,4 @@
 import enum
-from .utils import ENCODING
 from .filters import command
 
 class BaseHandler:
