@@ -1,5 +1,5 @@
 import socket
-from .utils.utils import sendAll
+from gpcp.utils import packet
 
 class Client:
 
@@ -78,24 +78,15 @@ class Client:
         if handler is not None and not callable(handler):
             raise ValueError(f"invalid option '{handler}' for handler, must be callable")
 
-        sendAll(self.socket, request)
+        packet.sendAll(self.socket, request)
 
-        head = self.socket.recv(Packet.HEADER) #read the header from a buffered request
-
-        if head:
-            byteCount = int(head)
-            data = self.socket.recv(byteCount) #read the actual message of len head
-
-            while len(data) < byteCount:
-                data += self.socket.recv(byteCount - len(data))
-
+        data = packet.receiveAll(self.socket)
+        if data is not None:
             if handler is not None:
                 handler(self.socket, data)
             elif self.default_handler is not None:
                 self.default_handler(self.socket, data)
-            else:
-                return data
-        return None # data was handled by a handler
+        return data
 
     def closeConnection(self, mode="RW"):
         """closes the connection to the server, RW = read and write, R = read, W = write"""
@@ -113,5 +104,5 @@ class Client:
     def __exit__(self, exc_type, exc_value, exc_tb):
 
         self.closeConnection()
-        if exc_type and exc_value and exc_tb != None:
+        if exc_type and exc_value and exc_tb is not None:
             print(exc_type, "\n", exc_value, "\n", exc_tb)
