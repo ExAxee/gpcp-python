@@ -1,7 +1,11 @@
 import socket
-from .utils.utils import sendAll, Packet
+from .utils.utils import sendAll
 
 class Client:
+
+    @staticmethod
+    def __defaultRemoteCallMethod__():
+        print()
 
     def __init__(self, default_handler=None):
         """
@@ -19,6 +23,44 @@ class Client:
 
     def __enter__(self):
         return self
+
+    def loadInterface(self, raw_interface):
+        """
+        Given a raw interface string or dict it will load the remote interface and make it
+        available to the user with Client.RemoteCall.<command>(*args, **kwargs)
+
+        this is the definition of a remote command:
+        {
+            name: str,
+            arguments: [{name: str, type: type}, ...],
+            return_type: type,
+            doc: str
+        }
+
+        raw_interface can have multiple commands in a array, like so:
+
+        raw_interface = [command_1, command_2, command_3, etc]
+
+        every command MUST follow the above definition
+        """
+
+        interface = {}
+        callArgs = {}
+
+        for command in raw_interface:
+            callFunc = Client.__defaultRemoteCallMethod__
+            callFunc.__doc__ = command.doc
+            callFunc.__name__ = command.name
+
+            for argument in command.arguments:
+                callArgs[argument.name] = argument.type
+
+            callArgs["return"] = argument.return_type
+            callFunc.__annotations__ = callArgs
+
+            interface[command.name] = callFunc
+
+        self.RemoteCall = type('RemoteCall', (object,), interface) #generate the class object
 
     def connect(self, host, port):
         """connect to a server"""
