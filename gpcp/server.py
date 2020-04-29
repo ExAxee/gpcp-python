@@ -67,11 +67,10 @@ class Server:
                     data = packet.receiveAll(sock)
                     if data is not None:
                         # tell the handler for the current connection about the received command
-                        packet.sendAll(sock, handler.handleData(data).encode(packet.ENCODING))
+                        packet.sendAll(sock, handler.handleData(data))
 
                 except BlockingIOError:
                     continue
-
 
     def closeConnection(self, connection, msg=None):
         """

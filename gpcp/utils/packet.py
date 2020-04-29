@@ -15,8 +15,12 @@ def dataToCommand(data: bytes):
     arguments = json.loads(data[separatorIndex:])
     return (commandIdentifier, arguments)
 
-def sendAll(connection, data: bytes):
+def sendAll(connection, data):
     """sends all data, this is not the default socket.sendall() function"""
+    print("Sending", data)
+
+    if isinstance(data, str):
+        data = data.encode(ENCODING)
 
     data = len(data).to_bytes(HEADER_LENGTH, byteorder=HEADER_BYTEORDER) + data
     while data:
@@ -32,4 +36,5 @@ def receiveAll(connection):
     while len(data) < byteCount:
         data += connection.recv(byteCount - len(data))
 
+    print("Received", data)
     return data
