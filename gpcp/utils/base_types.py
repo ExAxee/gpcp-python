@@ -1,76 +1,36 @@
-import json
 from gpcp.utils import packet
 
 class TypeBase:
-    # method to override
     @staticmethod
-    def fromBytes(string):
+    def serialize(value):
         raise NotImplementedError()
 
-    # method to override
     @staticmethod
-    def toBytes(value):
-        return NotImplementedError()
+    def deserialize(entry):
+        raise NotImplementedError()
 
+class JsonBuiltinType(TypeBase):
+    @staticmethod
+    def serialize(value):
+        return value
+
+    @staticmethod
+    def deserialize(entry):
+        return entry
 
 class Bytes(TypeBase):
     @staticmethod
-    def fromBytes(string):
-        return string
+    def serialize(value):
+        return value.decode("ascii")
 
     @staticmethod
-    def toBytes(value):
-        return str(value).encode(packet.ENCODING)
+    def deserialize(entry):
+        return entry.encode("ascii")
 
-
-class String(TypeBase):
-    @staticmethod
-    def fromBytes(string):
-        return string.decode(packet.ENCODING)
-
-    @staticmethod
-    def toBytes(value):
-        return value.encode(packet.ENCODING)
-
-
-class Integer(TypeBase):
-    @staticmethod
-    def fromBytes(string):
-        return int(string.decode(packet.ENCODING), base=10)
-
-    @staticmethod
-    def toBytes(value):
-        return str(value).encode(packet.ENCODING)
-
-
-class HexInteger(TypeBase):
-    @staticmethod
-    def fromBytes(string):
-        return int(string.decode(packet.ENCODING), base=16)
-
-    @staticmethod
-    def toBytes(value):
-        return hex(value).encode(packet.ENCODING)
-
-
-class Float(TypeBase):
-    @staticmethod
-    def fromBytes(string):
-        return float(string.decode(packet.ENCODING))
-
-    @staticmethod
-    def toBytes(value):
-        return str(value).encode(packet.ENCODING)
-
-
-class Json(TypeBase):
-    @staticmethod
-    def fromBytes(string):
-        return json.loads(string.decode(packet.ENCODING))
-
-    @staticmethod
-    def toBytes(value):
-        return json.dumps(value).encode(packet.ENCODING)
+class String(JsonBuiltinType): pass
+class Integer(JsonBuiltinType): pass
+class Float(JsonBuiltinType): pass
+class Json(JsonBuiltinType): pass
 
 
 def getIfBuiltIn(argumentType):
@@ -89,7 +49,7 @@ def getIfBuiltIn(argumentType):
         return Float
     return argumentType
 
-allTypesArray = [Bytes, String, Integer, HexInteger, Float, Json]
+allTypesArray = [Bytes, String, Integer, Float, Json]
 
 def getFromId(integerId: int):
     """

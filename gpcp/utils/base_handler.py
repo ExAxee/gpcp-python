@@ -1,7 +1,7 @@
 import json
 from gpcp.utils import packet
 from gpcp.utils.filters import command, FunctionType
-from gpcp.utils.base_types import toId
+from gpcp.utils.base_types import toId, Json
 
 class BaseHandler:
 
@@ -47,28 +47,27 @@ class BaseHandler:
                                  + f" {func}: {func.__gpcp_metadata__}")
 
     def handleData(self, data):
-        parts = data.split()
-        commandIdentifier = parts[0].decode(packet.ENCODING)
+        commandIdentifier, arguments = packet.dataToCommand(data)
 
         try:
-            function, _, returnType, arguments = self.commandFunctions[commandIdentifier]
+            function, _, returnType, argumentTypes = self.commandFunctions[commandIdentifier]
         except KeyError:
             if self.unknownCommandFunction is None:
                 return b"Unknown command" # TODO some other type of error handling
-            return self.unknownCommandFunction(commandIdentifier, parts[1:])
+            return self.unknownCommandFunction(commandIdentifier, arguments)
 
         # convert parameters from `bytes` to the types of `function` arguments
         convertedArguments = []
-        for i in range(len(parts) - 1):
-            argType, _ = arguments[i]
-            convertedArguments.append(argType.fromBytes(parts[i+1]))
+        for i in range(len(arguments)):
+            argType, _ = argumentTypes[i]
+            convertedArguments.append(argType.deserialize(arguments[i]))
 
         # convert the return value to `bytes` from the specified type
         returnValue = function(self, commandIdentifier, *convertedArguments)
-        return returnType.toBytes(returnValue)
+        return json.dumps(returnType.serialize(returnValue))
 
     @command
-    def requestCommands(self, _):
+    def requestCommands(self, _) -> Json:
         """requests the commands list from the server and returns it."""
 
         serializedCommands = []
@@ -83,4 +82,4 @@ class BaseHandler:
                 "description": description,
             })
 
-        return json.dumps(serializedCommands)
+        return serializedCommands
