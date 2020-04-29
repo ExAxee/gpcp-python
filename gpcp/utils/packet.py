@@ -30,11 +30,13 @@ def sendAll(connection, data):
 def receiveAll(connection):
     head = connection.recv(HEADER_LENGTH) #read the header from a buffered request
 
-    byteCount = int.from_bytes(head, byteorder=HEADER_BYTEORDER)
-    data = connection.recv(byteCount) #read the actual message of len head
+    if head:
+        byteCount = int.from_bytes(head, byteorder=HEADER_BYTEORDER)
+        data = connection.recv(byteCount) #read the actual message of len head
 
-    while len(data) < byteCount:
-        data += connection.recv(byteCount - len(data))
+        while len(data) < byteCount:
+            data += connection.recv(byteCount - len(data))
 
-    print("Received", data)
-    return data
+        print("Received", data)
+        return data
+    return None
