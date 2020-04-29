@@ -1,11 +1,8 @@
 import socket
+from gpcp.utils.base_types import getFromId
 from gpcp.utils import packet
 
 class Client:
-
-    @staticmethod
-    def __defaultRemoteCallMethod__():
-        print()
 
     def __init__(self, default_handler=None):
         """
@@ -24,7 +21,7 @@ class Client:
     def __enter__(self):
         return self
 
-    def loadInterface(self, raw_interface):
+    def loadInterface(self, raw_interface: list, namespace: type):
         """
         Given a raw interface string or dict it will load the remote interface and make it
         available to the user with Client.RemoteCall.<command>(*args, **kwargs)
@@ -44,23 +41,25 @@ class Client:
         every command MUST follow the above definition
         """
 
-        interface = {}
-        callArgs = {}
-
         for command in raw_interface:
-            callFunc = Client.__defaultRemoteCallMethod__
-            callFunc.__doc__ = command.doc
-            callFunc.__name__ = command.name
+            def generateWrapperFunction():
+                def wrapper(*args):
+                    arguments = []
+                    for i in range(len(args)):
+                        arguments.append(wrapper.argumentTypes[i].serialize(args[i]))
+                    data = packet.commandToData(wrapper.commandIdentifier, arguments)
+                    returnedData = self.request(data).decode(packet.ENCODING)
+                    return wrapper.returnType.deserialize(returnedData)
+                return wrapper
 
-            for argument in command.arguments:
-                callArgs[argument.name] = argument.type
+            wrapper = generateWrapperFunction()
 
-            callArgs["return"] = argument.return_type
-            callFunc.__annotations__ = callArgs
+            wrapper.commandIdentifier = command["name"]
+            wrapper.argumentTypes = [getFromId(arg["type"]) for arg in command["arguments"]]
+            wrapper.returnType = getFromId(command["return_type"])
+            wrapper.__doc__ = command["description"]
 
-            interface[command.name] = callFunc
-
-        self.RemoteCall = type('RemoteCall', (object,), interface) #generate the class object
+            setattr(namespace, command["name"], wrapper)
 
     def connect(self, host, port):
         """connect to a server"""
@@ -79,14 +78,7 @@ class Client:
             raise ValueError(f"invalid option '{handler}' for handler, must be callable")
 
         packet.sendAll(self.socket, request)
-
-        data = packet.receiveAll(self.socket)
-        if data is not None:
-            if handler is not None:
-                handler(self.socket, data)
-            elif self.default_handler is not None:
-                self.default_handler(self.socket, data)
-        return data
+        return packet.receiveAll(self.socket)
 
     def closeConnection(self, mode="RW"):
         """closes the connection to the server, RW = read and write, R = read, W = write"""

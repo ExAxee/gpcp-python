@@ -65,13 +65,15 @@ class Server:
             for sock, address, handler in self.connections:
                 try:
                     data = packet.receiveAll(sock)
-                    if data is not None:
+                    if data is None:
+                        # connection was closed
+                        self.closeConnection(sock)
+                    else:
                         # tell the handler for the current connection about the received command
                         packet.sendAll(sock, handler.handleData(data))
 
                 except BlockingIOError:
                     continue
-
 
     def closeConnection(self, connection, msg=None):
         """
@@ -82,14 +84,20 @@ class Server:
         if msg:
             if not isinstance(msg, str) and not isinstance(msg, bytes):
                 raise ValueError(f"invalid option '{msg}' for msg, must be string")
-        if (connection, connection.getpeername()) not in self.connections:
-            raise ValueError(
-                f"connection {connection.getsockname()} is not a connection of this server")
 
         if msg:
             packet.sendAll(connection, msg)
 
-        self.connections.remove((connection, connection.getpeername()))
+        deleted = False
+        for i in range(len(self.connections)):
+            if self.connections[i][0] is connection:
+                del self.connections[i]
+                deleted = True
+                break
+        if not deleted:
+            raise ValueError(
+                f"connection {connection.getsockname()} is not a connection of this server")
+
         connection.shutdown(socket.SHUT_RDWR)
         connection.close()
 
