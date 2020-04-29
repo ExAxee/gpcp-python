@@ -1,4 +1,4 @@
-import enum
+import enum, re, keyword
 from gpcp.utils.base_types import getIfBuiltIn, Bytes
 
 class FunctionType(enum.Enum):
@@ -15,6 +15,14 @@ def command(arg):
         :param arg: (optinal) the command identifier for the function,
             defaults to the name of the function if not specified
     """
+
+    def assertIdentifierValid(identifier: str):
+        if re.match("^[a-zA-Z_][a-zA-Z0-9_]*$", identifier):
+            if keyword.iskeyword(identifier):
+                raise ValueError(f"Invalid command filter '{repr(arg)}': it is a python keyword")
+        else:
+            raise ValueError(f"Invalid command filter '{repr(arg)}':\nit contains special characters or starts with a number")
+        
 
     def getArgumentTypes(func):
         """
@@ -40,14 +48,14 @@ def command(arg):
         returnType = func.__annotations__.get("return", Bytes)
         return getIfBuiltIn(returnType)
 
-
+    # `@command` used without parameters
     if callable(arg):
-        # `@command` used without parameters
         arg.__gpcp_metadata__ = (FunctionType.command, arg.__name__,
                                  arg.__doc__, getReturnType(arg), getArgumentTypes(arg))
         return arg
 
     # `@command` used with name parameter (e.g. @command("start"))
+    assertIdentifierValid(arg):
     def wrapper(func):
         func.__gpcp_metadata__ = (FunctionType.command, arg,
                                   func.__doc__, getReturnType(func), getArgumentTypes(func))
