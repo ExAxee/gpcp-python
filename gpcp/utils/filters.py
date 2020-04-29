@@ -19,10 +19,10 @@ def command(arg):
     def assertIdentifierValid(identifier: str):
         if re.match("^[a-zA-Z_][a-zA-Z0-9_]*$", identifier):
             if keyword.iskeyword(identifier):
-                raise ValueError(f"Invalid command filter '{repr(arg)}': it is a python keyword")
+                raise ValueError(f"Invalid command filter '{arg}': it is a python keyword")
         else:
-            raise ValueError(f"Invalid command filter '{repr(arg)}':\nit contains special characters or starts with a number")
-        
+            raise ValueError(f"Invalid command filter '{arg}':\nit contains special characters or starts with a number")
+
 
     def getArgumentTypes(func):
         """
@@ -50,12 +50,13 @@ def command(arg):
 
     # `@command` used without parameters
     if callable(arg):
+        assertIdentifierValid(arg.__name__)
         arg.__gpcp_metadata__ = (FunctionType.command, arg.__name__,
                                  arg.__doc__, getReturnType(arg), getArgumentTypes(arg))
         return arg
 
     # `@command` used with name parameter (e.g. @command("start"))
-    assertIdentifierValid(arg):
+    assertIdentifierValid(arg)
     def wrapper(func):
         func.__gpcp_metadata__ = (FunctionType.command, arg,
                                   func.__doc__, getReturnType(func), getArgumentTypes(func))
