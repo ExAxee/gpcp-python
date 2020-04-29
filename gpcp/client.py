@@ -78,7 +78,7 @@ class Client:
         if handler is not None and not callable(handler):
             raise ValueError(f"invalid option '{handler}' for handler, must be callable")
 
-        packet.sendAll(self.socket, request)
+        packet.sendAll(self.socket, request.encode(packet.ENCODING))
 
         data = packet.receiveAll(self.socket)
         if data is not None:
