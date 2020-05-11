@@ -3,8 +3,9 @@ from gpcp.utils import packet
 
 class Server:
 
-    def __init__(self, reuse_addr: bool = False):
-        self.handlerClass = None
+    def __init__(self, handler = None, reuse_addr: bool = False):
+        if handler:
+            self.setHandlerClass(handler)
         self.connections = []
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.setblocking(False)
@@ -22,17 +23,20 @@ class Server:
         Sets the handler class used as a factory to instantiate a handler for every connection
             :param handlerClass: the handler class, usually extending BaseHandler
         """
-        self.handlerClass = handlerClass
+        if not hasattr(handlerClass, "handleData") or not callable(handlerClass.handleData):
+            raise ValueError(f"missing core method in '{handlerClass}' for handler class,"
+                             + " missing function 'handleData'")
 
         if hasattr(handlerClass, "loadHandlers"):
             if callable(handlerClass.loadHandlers):
+                self.handlerClass = handlerClass
                 self.handlerClass.loadHandlers()
             else:
-                raise ValueError(f"invalid option '{handlerClass}' for handler class,"
+                raise ValueError(f"invalid core method in '{handlerClass}' for handler class,"
                                  + " 'loadHandlers' is not callable")
-        if not hasattr(handlerClass, "handleData") or not callable(handlerClass.handleData):
-            raise ValueError(f"invalid option '{handlerClass}' for handler class,"
-                             + " missing function 'handleData'")
+        else:
+            raise ValueError(f"missing core method in '{handlerClass}' for handler class,"
+                             + " missing function 'loadHandlers'")
 
     def startServer(self, IP: str, port: int, buffer: int = 5):
         """start the server and open it for connections."""

@@ -55,7 +55,7 @@ def command(arg):
         return arg
 
     # `@command` used with name parameter (e.g. @command("start"))
-    assertIdentifierValid(arg):
+    assertIdentifierValid(arg)
     def wrapper(func):
         func.__gpcp_metadata__ = (FunctionType.command, arg,
                                   func.__doc__, getReturnType(func), getArgumentTypes(func))
