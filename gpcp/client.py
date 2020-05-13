@@ -11,12 +11,9 @@ class Client:
         responses to all requests will be handled by it
         """
 
-        if default_handler is not None:
-            if not callable(default_handler):
-                raise ValueError(
-                    f"invalid option '{default_handler}' for default_handler, must be callable")
+        if default_handler is not None and not callable(default_handler):
+            raise ValueError(f"invalid option '{default_handler}' for default_handler, must be callable")
         self.default_handler = default_handler
-
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     def __enter__(self):
@@ -41,6 +38,9 @@ class Client:
 
         every command MUST follow the above definition
         """
+        if self.__remote_mode__ == "COMMANDLESS":
+            raise PermissionError(f"Tried to load a interface with a connection to a commandless server")
+        
         if isinstance(raw_interface, bytes) or isinstance(raw_interface, str):
             raw_interface = json.loads(raw_interface)
         else:
@@ -75,7 +75,16 @@ class Client:
             raise ValueError(f"invalid option '{port}' for port, must be integer")
 
         self.socket.connect((host, port))
-        self.loadInterface(self.request("requestCommands[]"), self)
+        packet.sendAll(self.socket, "MODEREQUEST")
+        remote = packet.receiveAll(self.socket)
+
+        if remote.decode(packet.ENCODING) == "COMMANDLESS":
+            self.__remote_mode__ = "COMMANDLESS"
+        elif remote.decode(packet.ENCODING) == "MULTICOMMAND":
+            self.__remote_mode__ = "MULTICOMMAND"
+            self.loadInterface(remote, self)
+        else:
+            raise ValueError(f"Recieved invalid value '{remote}' as response to remote mode request")
 
     def request(self, request, handler=None):
         """if handler is specified it will overwrite temporairly the default_handler"""
@@ -84,7 +93,13 @@ class Client:
             raise ValueError(f"invalid option '{handler}' for handler, must be callable")
 
         packet.sendAll(self.socket, request)
-        return packet.receiveAll(self.socket)
+
+        if handler:
+            return handler(packet.receiveAll(self.socket))
+        elif self.default_handler:
+            return self.default_handler(packet.receiveAll(self.socket))
+        else:
+            return packet.receiveAll(self.socket)
 
     def closeConnection(self, mode="RW"):
         """closes the connection to the server, RW = read and write, R = read, W = write"""
