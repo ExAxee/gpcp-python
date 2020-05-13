@@ -9,6 +9,7 @@ class Server:
         self.connections = []
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.setblocking(False)
+        self.handlerClass = None
 
         if not isinstance(reuse_addr, bool):
             raise ValueError(f"invalid option '{reuse_addr}' for reuse_addr, must be True or False")

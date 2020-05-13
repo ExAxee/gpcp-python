@@ -17,7 +17,6 @@ def dataToCommand(data: bytes):
 
 def sendAll(connection, data):
     """sends all data, this is not the default socket.sendall() function"""
-    print("Sending", data)
 
     if isinstance(data, str):
         data = data.encode(ENCODING)
@@ -37,6 +36,5 @@ def receiveAll(connection):
         while len(data) < byteCount:
             data += connection.recv(byteCount - len(data))
 
-        print("Received", data)
         return data
     return None
