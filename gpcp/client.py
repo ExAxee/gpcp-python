@@ -52,7 +52,7 @@ class Client:
                     arguments = []
                     for i in range(len(args)):
                         arguments.append(wrapper.argumentTypes[i].serialize(args[i]))
-                    data = packet.commandToData(wrapper.commandIdentifier, arguments)
+                    data = packet.CommandData.encode(wrapper.commandIdentifier, arguments)
                     returnedData = self.request(data).decode(packet.ENCODING)
                     return wrapper.returnType.deserialize(returnedData)
                 return wrapper
