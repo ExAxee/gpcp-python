@@ -108,8 +108,11 @@ class Server:
 
     def stopServer(self):
         """Shuts down the server"""
-        self.socket.shutdown(socket.SHUT_RDWR)
-        self.socket.close()
+        try:
+            self.socket.shutdown(socket.SHUT_RDWR)
+            self.socket.close()
+        except OSError: #the server is not started so there isn't something to stop
+            pass
 
     def __del__(self):
         self.stopServer()
