@@ -47,7 +47,7 @@ class BaseHandler:
                                  + f" {func}: {func.__gpcp_metadata__}")
 
     def handleData(self, data):
-        commandIdentifier, arguments = packet.dataToCommand(data)
+        commandIdentifier, arguments = packet.CommandData.decode(data)
 
         try:
             function, _, returnType, argumentTypes = self.commandFunctions[commandIdentifier]

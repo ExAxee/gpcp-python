@@ -5,15 +5,17 @@ HEADER_LENGTH = 4
 HEADER_BYTEORDER = "big"
 ENCODING = "utf-8"
 
-def commandToData(commandIdentifier: str, arguments: list):
-    return (commandIdentifier + json.dumps(arguments)).encode(ENCODING)
+class CommandData:
 
-def dataToCommand(data: bytes):
-    data = data.decode(ENCODING)
-    separatorIndex = data.find("[")
-    commandIdentifier = data[:separatorIndex]
-    arguments = json.loads(data[separatorIndex:])
-    return (commandIdentifier, arguments)
+    def encode(commandIdentifier: str, arguments: list) -> bytes:
+        return (commandIdentifier + json.dumps(arguments)).encode(ENCODING)
+
+    def decode(data: bytes or str) -> tuple:
+        data = data.decode(ENCODING)
+        separatorIndex = data.find("[")
+        commandIdentifier = data[:separatorIndex]
+        arguments = json.loads(data[separatorIndex:])
+        return (commandIdentifier, arguments)
 
 def sendAll(connection, data):
     """sends all data, this is not the default socket.sendall() function"""
