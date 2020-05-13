@@ -1,6 +1,7 @@
 import socket
 from gpcp.utils.base_types import getFromId
 from gpcp.utils import packet
+import json
 
 class Client:
 
@@ -40,6 +41,10 @@ class Client:
 
         every command MUST follow the above definition
         """
+        if isinstance(raw_interface, bytes) or isinstance(raw_interface, str):
+            raw_interface = json.loads(raw_interface)
+        else:
+            pass
 
         for command in raw_interface:
             def generateWrapperFunction():
@@ -70,6 +75,7 @@ class Client:
             raise ValueError(f"invalid option '{port}' for port, must be integer")
 
         self.socket.connect((host, port))
+        self.loadInterface(self.request("requestCommands[]"), self)
 
     def request(self, request, handler=None):
         """if handler is specified it will overwrite temporairly the default_handler"""

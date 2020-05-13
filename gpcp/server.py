@@ -6,10 +6,11 @@ class Server:
     def __init__(self, handler = None, reuse_addr: bool = False):
         if handler:
             self.setHandlerClass(handler)
+        else:
+            self.handlerClass = None
         self.connections = []
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.setblocking(False)
-        self.handlerClass = None
 
         if not isinstance(reuse_addr, bool):
             raise ValueError(f"invalid option '{reuse_addr}' for reuse_addr, must be True or False")

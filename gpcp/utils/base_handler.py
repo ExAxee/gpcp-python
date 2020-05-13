@@ -75,10 +75,10 @@ class BaseHandler:
             _, description, returnType, arguments = metadata
 
             serializedCommands.append({
+                "name": commandTrigger,
                 "arguments": [{"name": argName, "type": toId(argType)}
                               for argType, argName in arguments],
                 "return_type": toId(returnType),
-                "name": commandTrigger,
                 "description": description,
             })
 
