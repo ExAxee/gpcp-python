@@ -1,7 +1,7 @@
 import socket
+import json
 from gpcp.utils.base_types import getFromId
 from gpcp.utils import packet
-import json
 
 class Client:
 
@@ -12,12 +12,21 @@ class Client:
         """
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
+
     def __enter__(self):
         return self
 
+    def __exit__(self, exc_type, exc_value, exc_tb):
+        self.closeConnection()
 
-    def connect(self, host, port):
-        """connect to a server"""
+    def connect(self, host: str, port: int):
+        """
+        Connect to a server
+
+        :param host: the host server ip or address
+        :param port: the port on the host server
+        :returns: self, so that this function can be called inside a `with`
+        """
 
         if not isinstance(host, str):
             raise ValueError(f"invalid option '{host}' for host, must be string")
@@ -25,24 +34,24 @@ class Client:
             raise ValueError(f"invalid option '{port}' for port, must be integer")
 
         self.socket.connect((host, port))
+        return self
 
-    def closeConnection(self, mode="RW"):
-        """closes the connection to the server, RW = read and write, R = read, W = write"""
-        if mode == "RW":
+    def closeConnection(self, mode: str="rw"):
+        """
+        Closes the connection to the server
+        :param mode: r = read, w = write, rw = read and write
+        """
+
+        if mode == "rw":
             self.socket.shutdown(socket.SHUT_RDWR)
-        elif mode == "R":
+        elif mode == "r":
             self.socket.shutdown(socket.SHUT_RD)
-        elif mode == "W":
+        elif mode == "w":
             self.socket.shutdown(socket.SHUT_WR)
         else:
-            raise ValueError("close mode must be 'R' or 'W' or 'RW'")
+            raise ValueError("close mode must be 'r' or 'w' or 'rw'")
 
         self.socket.close()
-
-    def __exit__(self, exc_type, exc_value, exc_tb):
-        self.closeConnection()
-        if exc_type and exc_value and exc_tb is not None:
-            print(exc_type, "\n", exc_value, "\n", exc_tb)
 
 
     def loadInterface(self, raw_interface: list, namespace: type):
