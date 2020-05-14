@@ -10,7 +10,7 @@ class CommandData:
 
     @staticmethod
     def encode(commandIdentifier: str, arguments: list) -> bytes:
-        return (commandIdentifier + json.dumps(arguments)).encode(ENCODING)
+        return ((commandIdentifier if commandIdentifier else "") + json.dumps(arguments)).encode(ENCODING)
 
     @staticmethod
     def decode(data: Union[bytes, str]) -> Tuple[str, list]:
