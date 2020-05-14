@@ -1,10 +1,11 @@
 import socket
+from typing import Union, Callable
 from gpcp.utils.base_handler import buildHandlerFromFunction
 from gpcp.utils import packet
 
 class Server:
 
-    def __init__(self, handler=None, reuse_addr: bool = False):
+    def __init__(self, handler: Union[type, Callable] = None, reuse_addr: bool = False):
         if handler:
             self.setHandler(handler)
         else:
@@ -21,7 +22,7 @@ class Server:
     def __enter__(self):
         return self
 
-    def setHandler(self, handler: type or callable):
+    def setHandler(self, handler: Union[type, Callable]):
         """
         Sets the handler class used as a factory to instantiate a handler for every connection
             :param handler: the handler class, usually extending BaseHandler
@@ -74,6 +75,7 @@ class Server:
                 # The handler can store whatever information it wants relatively to a
                 # connection, so it can't be used statically, but it must be instantiated
                 handler = self.handler()
+                handler.onConnected(self, connection, address)
                 self.connections.append((connection, address, handler))
             except BlockingIOError:
                 pass # there is no connection yet
@@ -88,31 +90,26 @@ class Server:
                 except BlockingIOError:
                     continue
 
-    def closeConnection(self, connection, msg=None):
-        """
-        Closes a connection from a client, if `msg` is specified
-        the server will send it and afterwards close the connection
-        """
-
-        if msg:
-            if not isinstance(msg, str) and not isinstance(msg, bytes):
-                raise ValueError(f"invalid option '{msg}' for msg, must be string")
-
-        if msg:
-            packet.sendAll(connection, msg)
+    def closeConnection(self, connectionToDelete):
+        """Closes a connection from a client"""
 
         deleted = False
-        for i in range(len(self.connections)):
-            if self.connections[i][0] is connection:
+        for i, connection in enumerate(self.connections):
+            if connection[0] is connectionToDelete:
+                data = connection[2].onDisonnected(self, connection[0], connection[1])
+                if data is not None:
+                    packet.sendAll(connection, data)
+
                 del self.connections[i]
                 deleted = True
                 break
+
         if not deleted:
             raise ValueError(
-                f"connection {connection.getsockname()} is not a connection of this server")
+                f"connection {connectionToDelete.getsockname()} is not a connection of this server")
 
-        connection.shutdown(socket.SHUT_RDWR)
-        connection.close()
+        connectionToDelete.shutdown(socket.SHUT_RDWR)
+        connectionToDelete.close()
 
     def stopServer(self):
         """Shuts down the server"""
