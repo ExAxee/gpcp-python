@@ -103,6 +103,6 @@ class Client:
         packet.sendAll(self.socket, request)
         return packet.receiveAll(self.socket)
 
-    def commandRequest(self, commandIdentifier: str, arguments: list):
+    def commandRequest(self, arguments: list, commandIdentifier: str=""):
         data = packet.CommandData.encode(commandIdentifier, arguments)
         return self.request(data).decode(packet.ENCODING)
