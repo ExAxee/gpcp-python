@@ -1,10 +1,11 @@
 import socket
 import json
+from gpcp.utils.base_handler import buildHandlerFromFunction
 from gpcp.utils import packet
 
 class Server:
 
-    def __init__(self, handler = None, reuse_addr: bool = False):
+    def __init__(self, handler=None, reuse_addr: bool=False):
         if handler:
             self.setHandler(handler)
         else:
@@ -21,31 +22,34 @@ class Server:
     def __enter__(self):
         return self
 
-    def setHandler(self, handler: type):
+    def setHandler(self, handler: type or callable):
         """
         Sets the handler class used as a factory to instantiate a handler for every connection
             :param handler: the handler class, usually extending BaseHandler
         """
-        
-        if callable(handler):
-            self.__mode__ = "COMMANDLESS"
-            self.handler = handler
-        else:
-            self.__mode__ = "MULTICOMMAND"
-            if not hasattr(handler, "handleData") or not callable(handler.handleData):
-                raise ValueError(f"missing core method in '{handler}' for handler class,"
-                                 + " missing function 'handleData'")
 
-            if hasattr(handler, "loadHandlers"):
-                if callable(handler.loadHandlers):
-                    self.handler = handler
-                    self.handler.loadHandlers()
-                else:
-                    raise ValueError(f"invalid core method in '{handler}' for handler class,"
-                                     + " 'loadHandlers' is not callable")
+        if not hasattr(handler, "handleData"):
+            # suppose this is a function
+            if not callable(handler):
+                raise ValueError(f"'{handler}' is neither a handler class nor a function")
+            self.handler = buildHandlerFromFunction(handler)
+            return
+
+        # this has to be a handler class
+        if not callable(handler.handleData):
+            raise ValueError(f"missing core method in '{handler}' for handler class:"
+                                + " 'handleData' is not callable")
+
+        if hasattr(handler, "loadHandlers"):
+            if callable(handler.loadHandlers):
+                self.handler = handler
+                self.handler.loadHandlers()
             else:
-                raise ValueError(f"missing core method in '{handler}' for handler class,"
-                                 + " missing function 'loadHandlers'")
+                raise ValueError(f"invalid core method in '{handler}' for handler class,"
+                                    + " 'loadHandlers' is not callable")
+        else:
+            raise ValueError(f"missing core method in '{handler}' for handler class,"
+                                + " missing function 'loadHandlers'")
 
     def startServer(self, IP: str, port: int, buffer: int = 5):
         """start the server and open it for connections."""
@@ -70,12 +74,7 @@ class Server:
                 # Create a new handler using handler as a factory.
                 # The handler can store whatever information it wants relatively to a
                 # connection, so it can't be used statically, but it must be instantiated
-                if self.__mode__ == "COMMANDLESS":
-                    handler = self.handler
-                elif self.__mode__ == "MULTICOMMAND":
-                    handler = self.handler()
-                else:
-                    raise ValueError(f"Internal core variable '__mode__' is a not recognized value: '{self.__mode__}'")
+                handler = self.handler()
                 self.connections.append((connection, address, handler))
             except BlockingIOError:
                 pass # there is no connection yet
@@ -83,26 +82,10 @@ class Server:
             for sock, address, handler in self.connections:
                 try:
                     data = packet.receiveAll(sock)
-                    if data is None:
-                        # connection was closed
+                    if data is None: # connection was closed
                         self.closeConnection(sock)
-                    else:
-                        # tell the handler for the current connection about the received command
-                        if data == b"MODEREQUEST":
-                            if self.__mode__ == "COMMANDLESS":
-                                packet.sendAll(sock, "COMMANDLESS")
-                            elif self.__mode__ == "MULTICOMMAND":
-                                packet.sendAll(sock, "MULTICOMMAND")
-                            else:
-                                raise ValueError(f"Internal core variable '__mode__' is a not recognized value: '{self.__mode__}'")
-                        else:
-                            if self.__mode__ == "COMMANDLESS":
-                                packet.sendAll(sock, self.handler(data))
-                            elif self.__mode__ == "MULTICOMMAND":
-                                packet.sendAll(sock, handler.handleData(data))
-                            else:
-                                raise ValueError(f"Internal core variable '__mode__' is a not recognized value: '{self.__mode__}'") 
-
+                    else: # send the handler response to the client
+                        packet.sendAll(sock, handler.handleData(data))
                 except BlockingIOError:
                     continue
 

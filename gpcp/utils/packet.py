@@ -7,11 +7,14 @@ ENCODING = "utf-8"
 
 class CommandData:
 
+    @staticmethod
     def encode(commandIdentifier: str, arguments: list) -> bytes:
         return (commandIdentifier + json.dumps(arguments)).encode(ENCODING)
 
+    @staticmethod
     def decode(data: bytes or str) -> tuple:
-        data = data.decode(ENCODING)
+        if isinstance(data, bytes):
+            data = data.decode(ENCODING)
         separatorIndex = data.find("[")
         commandIdentifier = data[:separatorIndex]
         arguments = json.loads(data[separatorIndex:])
