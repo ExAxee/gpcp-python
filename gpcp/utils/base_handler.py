@@ -6,8 +6,26 @@ from gpcp.utils.base_types import toId, Json
 
 class BaseHandler:
 
-    def __init__(self):
-        pass
+    # to be overridden
+    def onConnected(self, server, connection, address):
+        """
+        To be overridden, can be used to prepare the handler.
+
+        :param server: the gpcp server that established the connection
+        :param connection: the just opened socket connection
+        :param address: the address of the just opened connection
+        """
+
+    def onDisonnected(self, server, connection, address) -> Union[bytes, None]:
+        """
+        To be overridden, can be used to send a last message to the client
+        and to clean up the handler.
+
+        :param server: the gpcp server that established the connection
+        :param connection: the socket connection being closed
+        :param address: the address of the connection being closed
+        :returns: a message or None
+        """
 
     @classmethod
     def loadHandlers(cls):
