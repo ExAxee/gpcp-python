@@ -1,5 +1,6 @@
 """packet module containing functions to handle packets"""
 import json
+from typing import Union, Tuple
 
 HEADER_LENGTH = 4
 HEADER_BYTEORDER = "big"
@@ -7,17 +8,20 @@ ENCODING = "utf-8"
 
 class CommandData:
 
+    @staticmethod
     def encode(commandIdentifier: str, arguments: list) -> bytes:
         return (commandIdentifier + json.dumps(arguments)).encode(ENCODING)
 
-    def decode(data: bytes or str) -> tuple:
-        data = data.decode(ENCODING)
+    @staticmethod
+    def decode(data: Union[bytes, str]) -> Tuple[str, list]:
+        if isinstance(data, bytes):
+            data = data.decode(ENCODING)
         separatorIndex = data.find("[")
         commandIdentifier = data[:separatorIndex]
         arguments = json.loads(data[separatorIndex:])
         return (commandIdentifier, arguments)
 
-def sendAll(connection, data):
+def sendAll(connection, data: Union[bytes, str]):
     """sends all data, this is not the default socket.sendall() function"""
 
     if isinstance(data, str):
@@ -28,7 +32,7 @@ def sendAll(connection, data):
         sent = connection.send(data)
         data = data[sent:]
 
-def receiveAll(connection):
+def receiveAll(connection) -> Union[str, None]:
     head = connection.recv(HEADER_LENGTH) #read the header from a buffered request
 
     if head:
