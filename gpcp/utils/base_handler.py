@@ -1,6 +1,7 @@
 import json
+from typing import Callable, Union
 from gpcp.utils import packet
-from gpcp.utils.filters import command, FunctionType
+from gpcp.utils.filters import command, unknownCommand, FunctionType
 from gpcp.utils.base_types import toId, Json
 
 class BaseHandler:
@@ -46,7 +47,7 @@ class BaseHandler:
                 raise ValueError(f"invalid __gpcp_metadata__ for function"
                                  + f" {func}: {func.__gpcp_metadata__}")
 
-    def handleData(self, data):
+    def handleData(self, data: Union[bytes, str]):
         commandIdentifier, arguments = packet.CommandData.decode(data)
 
         try:
@@ -58,9 +59,9 @@ class BaseHandler:
 
         # convert parameters from `bytes` to the types of `function` arguments
         convertedArguments = []
-        for i in range(len(arguments)):
+        for i, argument in enumerate(arguments):
             argType, _ = argumentTypes[i]
-            convertedArguments.append(argType.deserialize(arguments[i]))
+            convertedArguments.append(argType.deserialize(argument))
 
         # convert the return value to `bytes` from the specified type
         returnValue = function(self, commandIdentifier, *convertedArguments)
@@ -83,3 +84,12 @@ class BaseHandler:
             })
 
         return serializedCommands
+
+def buildHandlerFromFunction(func: Callable) -> type:
+    class WrapperHandler(BaseHandler):
+        @unknownCommand
+        def wrapper(self, commandIdentifier, arguments):
+            return func(self, commandIdentifier, arguments)
+
+    WrapperHandler.loadHandlers()
+    return WrapperHandler

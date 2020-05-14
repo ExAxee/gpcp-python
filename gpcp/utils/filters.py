@@ -1,4 +1,7 @@
-import enum, re, keyword
+import enum
+import re
+import keyword
+from typing import Callable
 from gpcp.utils.base_types import getIfBuiltIn, Bytes
 
 class FunctionType(enum.Enum):
@@ -21,10 +24,11 @@ def command(arg):
             if keyword.iskeyword(identifier):
                 raise ValueError(f"Invalid command filter '{arg}': it is a python keyword")
         else:
-            raise ValueError(f"Invalid command filter '{arg}':\nit contains special characters or starts with a number")
+            raise ValueError(f"Invalid command filter '{arg}':"
+                             + " it contains special characters or starts with a number")
 
 
-    def getArgumentTypes(func):
+    def getArgumentTypes(func: Callable):
         """
         For every argument of the decorated function the type is obtained (if specified
         with `argument: type`) or defaulted to `Bytes`. Built-in types are supported.
@@ -39,7 +43,7 @@ def command(arg):
 
         return argumentTypes
 
-    def getReturnType(func):
+    def getReturnType(func: Callable):
         """
         Obtains the return type of a function (if specified with `def function() -> type:`)
         defaulting to `Bytes`. Built-in types are supported.
@@ -57,12 +61,12 @@ def command(arg):
 
     # `@command` used with name parameter (e.g. @command("start"))
     assertIdentifierValid(arg)
-    def wrapper(func):
+    def wrapper(func: Callable):
         func.__gpcp_metadata__ = (FunctionType.command, arg,
                                   func.__doc__, getReturnType(func), getArgumentTypes(func))
         return func
     return wrapper # the returned function when called adds the metadata to `func` and returns it
 
-def unknownCommand(func):
+def unknownCommand(func: Callable):
     func.__gpcp_metadata__ = (FunctionType.unknown,)
     return func
