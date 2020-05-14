@@ -87,8 +87,8 @@ class BaseHandler:
 def buildHandlerFromFunction(func: callable) -> type:
     class WrapperHandler(BaseHandler):
         @unknownCommand
-        def wrapper(self, cmd, arguments):
-            return func(self, cmd, arguments)
+        def wrapper(self, commandIdentifier, arguments):
+            return func(self, commandIdentifier, arguments)
 
     WrapperHandler.loadHandlers()
     return WrapperHandler
