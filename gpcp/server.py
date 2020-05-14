@@ -1,11 +1,10 @@
 import socket
-import json
 from gpcp.utils.base_handler import buildHandlerFromFunction
 from gpcp.utils import packet
 
 class Server:
 
-    def __init__(self, handler=None, reuse_addr: bool=False):
+    def __init__(self, handler=None, reuse_addr: bool = False):
         if handler:
             self.setHandler(handler)
         else:
@@ -38,7 +37,7 @@ class Server:
         # this has to be a handler class
         if not callable(handler.handleData):
             raise ValueError(f"missing core method in '{handler}' for handler class:"
-                                + " 'handleData' is not callable")
+                             + " 'handleData' is not callable")
 
         if hasattr(handler, "loadHandlers"):
             if callable(handler.loadHandlers):
@@ -46,10 +45,10 @@ class Server:
                 self.handler.loadHandlers()
             else:
                 raise ValueError(f"invalid core method in '{handler}' for handler class,"
-                                    + " 'loadHandlers' is not callable")
+                                 + " 'loadHandlers' is not callable")
         else:
             raise ValueError(f"missing core method in '{handler}' for handler class,"
-                                + " missing function 'loadHandlers'")
+                             + " missing function 'loadHandlers'")
 
     def startServer(self, IP: str, port: int, buffer: int = 5):
         """start the server and open it for connections."""

@@ -1,5 +1,6 @@
 import socket
 import json
+from typing import Union
 from gpcp.utils.base_types import getFromId
 from gpcp.utils import packet
 
@@ -36,7 +37,7 @@ class Client:
         self.socket.connect((host, port))
         return self
 
-    def closeConnection(self, mode: str="rw"):
+    def closeConnection(self, mode: str = "rw"):
         """
         Closes the connection to the server
         :param mode: r = read, w = write, rw = read and write
@@ -83,8 +84,8 @@ class Client:
             def generateWrapperFunction():
                 def wrapper(*args):
                     arguments = []
-                    for i in range(len(args)):
-                        arguments.append(wrapper.argumentTypes[i].serialize(args[i]))
+                    for i, arg in enumerate(args):
+                        arguments.append(wrapper.argumentTypes[i].serialize(arg))
                     returnedData = self.commandRequest(wrapper.commandIdentifier, arguments)
                     return wrapper.returnType.deserialize(returnedData)
                 return wrapper
@@ -98,10 +99,10 @@ class Client:
 
             setattr(namespace, command["name"], wrapper)
 
-    def request(self, request):
+    def request(self, request: Union[bytes, str]):
         packet.sendAll(self.socket, request)
         return packet.receiveAll(self.socket)
 
-    def commandRequest(self, commandIdentifier, arguments):
+    def commandRequest(self, commandIdentifier: str, arguments: list):
         data = packet.CommandData.encode(commandIdentifier, arguments)
         return self.request(data).decode(packet.ENCODING)
