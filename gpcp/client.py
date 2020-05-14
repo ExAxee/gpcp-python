@@ -5,19 +5,45 @@ import json
 
 class Client:
 
-    def __init__(self, default_handler=None):
+    def __init__(self):
         """
         If the callable default_handler is specified all
         responses to all requests will be handled by it
         """
-
-        if default_handler is not None and not callable(default_handler):
-            raise ValueError(f"invalid option '{default_handler}' for default_handler, must be callable")
-        self.default_handler = default_handler
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     def __enter__(self):
         return self
+
+
+    def connect(self, host, port):
+        """connect to a server"""
+
+        if not isinstance(host, str):
+            raise ValueError(f"invalid option '{host}' for host, must be string")
+        if not isinstance(port, int):
+            raise ValueError(f"invalid option '{port}' for port, must be integer")
+
+        self.socket.connect((host, port))
+
+    def closeConnection(self, mode="RW"):
+        """closes the connection to the server, RW = read and write, R = read, W = write"""
+        if mode == "RW":
+            self.socket.shutdown(socket.SHUT_RDWR)
+        elif mode == "R":
+            self.socket.shutdown(socket.SHUT_RD)
+        elif mode == "W":
+            self.socket.shutdown(socket.SHUT_WR)
+        else:
+            raise ValueError("close mode must be 'R' or 'W' or 'RW'")
+
+        self.socket.close()
+
+    def __exit__(self, exc_type, exc_value, exc_tb):
+        self.closeConnection()
+        if exc_type and exc_value and exc_tb is not None:
+            print(exc_type, "\n", exc_value, "\n", exc_tb)
+
 
     def loadInterface(self, raw_interface: list, namespace: type):
         """
@@ -38,9 +64,7 @@ class Client:
 
         every command MUST follow the above definition
         """
-        if self.__remote_mode__ == "COMMANDLESS":
-            raise PermissionError(f"Tried to load a interface with a connection to a commandless server")
-        
+
         if isinstance(raw_interface, bytes) or isinstance(raw_interface, str):
             raw_interface = json.loads(raw_interface)
         else:
@@ -52,8 +76,7 @@ class Client:
                     arguments = []
                     for i in range(len(args)):
                         arguments.append(wrapper.argumentTypes[i].serialize(args[i]))
-                    data = packet.CommandData.encode(wrapper.commandIdentifier, arguments)
-                    returnedData = self.request(data).decode(packet.ENCODING)
+                    returnedData = self.commandRequest(wrapper.commandIdentifier, arguments)
                     return wrapper.returnType.deserialize(returnedData)
                 return wrapper
 
@@ -66,56 +89,10 @@ class Client:
 
             setattr(namespace, command["name"], wrapper)
 
-    def connect(self, host, port):
-        """connect to a server"""
-
-        if not isinstance(host, str):
-            raise ValueError(f"invalid option '{host}' for host, must be string")
-        if not isinstance(port, int):
-            raise ValueError(f"invalid option '{port}' for port, must be integer")
-
-        self.socket.connect((host, port))
-        packet.sendAll(self.socket, "MODEREQUEST")
-        remote = packet.receiveAll(self.socket)
-
-        if remote.decode(packet.ENCODING) == "COMMANDLESS":
-            self.__remote_mode__ = "COMMANDLESS"
-        elif remote.decode(packet.ENCODING) == "MULTICOMMAND":
-            self.__remote_mode__ = "MULTICOMMAND"
-            self.loadInterface(remote, self)
-        else:
-            raise ValueError(f"Recieved invalid value '{remote}' as response to remote mode request")
-
-    def request(self, request, handler=None):
-        """if handler is specified it will overwrite temporairly the default_handler"""
-
-        if handler is not None and not callable(handler):
-            raise ValueError(f"invalid option '{handler}' for handler, must be callable")
-
+    def request(self, request):
         packet.sendAll(self.socket, request)
+        return packet.receiveAll(self.socket)
 
-        if handler:
-            return handler(packet.receiveAll(self.socket))
-        elif self.default_handler:
-            return self.default_handler(packet.receiveAll(self.socket))
-        else:
-            return packet.receiveAll(self.socket)
-
-    def closeConnection(self, mode="RW"):
-        """closes the connection to the server, RW = read and write, R = read, W = write"""
-        if mode == "RW":
-            self.socket.shutdown(socket.SHUT_RDWR)
-        elif mode == "R":
-            self.socket.shutdown(socket.SHUT_RD)
-        elif mode == "W":
-            self.socket.shutdown(socket.SHUT_WR)
-        else:
-            raise ValueError("close mode must be 'R' or 'W' or 'RW'")
-
-        self.socket.close()
-
-    def __exit__(self, exc_type, exc_value, exc_tb):
-
-        self.closeConnection()
-        if exc_type and exc_value and exc_tb is not None:
-            print(exc_type, "\n", exc_value, "\n", exc_tb)
+    def commandRequest(self, commandIdentifier, arguments):
+        data = packet.CommandData.encode(commandIdentifier, arguments)
+        return self.request(data).decode(packet.ENCODING)

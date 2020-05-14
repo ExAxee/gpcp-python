@@ -1,6 +1,6 @@
 import json
 from gpcp.utils import packet
-from gpcp.utils.filters import command, FunctionType
+from gpcp.utils.filters import command, unknownCommand, FunctionType
 from gpcp.utils.base_types import toId, Json
 
 class BaseHandler:
@@ -83,3 +83,12 @@ class BaseHandler:
             })
 
         return serializedCommands
+
+def buildHandlerFromFunction(func: callable) -> type:
+    class WrapperHandler(BaseHandler):
+        @unknownCommand
+        def wrapper(self, cmd, arguments):
+            return func(self, cmd, arguments)
+
+    WrapperHandler.loadHandlers()
+    return WrapperHandler
