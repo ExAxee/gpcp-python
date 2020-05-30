@@ -5,20 +5,9 @@ from gpcp.utils.base_types import getFromId
 from gpcp.utils import packet
 
 class Client:
-
-    def __init__(self):
-        """
-        If the callable default_handler is specified all
-        responses to all requests will be handled by it
-        """
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, exc_tb):
-        self.closeConnection()
+    """
+    gpcp client main class, used for creating and using a client
+    """
 
     def connect(self, host: str, port: int):
         """
@@ -40,6 +29,7 @@ class Client:
     def closeConnection(self, mode: str = "rw"):
         """
         Closes the connection to the server
+
         :param mode: r = read, w = write, rw = read and write
         """
 
@@ -50,15 +40,15 @@ class Client:
         elif mode == "w":
             self.socket.shutdown(socket.SHUT_WR)
         else:
-            raise ValueError("close mode must be 'r' or 'w' or 'rw'")
+            raise ValueError(f"invalid option '{mode}' for mode, must be 'r' or 'w' or 'rw'")
 
         self.socket.close()
-
 
     def loadInterface(self, raw_interface: list, namespace: type):
         """
         Given a raw interface string or dict it will load the remote interface and make it
-        available to the user with Client.RemoteCall.<command>(*args, **kwargs)
+        available to the user with <namespace>.<command>(*args, **kwargs), usually namespace is
+        the same as the Client class.
 
         this is the definition of a remote command:
         {
@@ -69,16 +59,16 @@ class Client:
         }
 
         raw_interface can have multiple commands in a array, like so:
-
         raw_interface = [command_1, command_2, command_3, etc]
 
         every command MUST follow the above definition
+
+        :param raw_interface: raw interface string or dict to load
+        :param namespace: the object where the commands will be loaded
         """
 
         if isinstance(raw_interface, bytes) or isinstance(raw_interface, str):
             raw_interface = json.loads(raw_interface)
-        else:
-            pass
 
         for command in raw_interface:
             def generateWrapperFunction():
@@ -100,9 +90,29 @@ class Client:
             setattr(namespace, command["name"], wrapper)
 
     def request(self, request: Union[bytes, str]):
+        """
+        send a formatted request to the server and returns the response
+
+        :param request: the formatted request to send
+        """
         packet.sendAll(self.socket, request)
         return packet.receiveAll(self.socket)
 
     def commandRequest(self, arguments: list, commandIdentifier: str=""):
+        """
+        format a command request with given arguments, send it and return the response
+
+        :param arguments: list of all arguments to send to the server
+        :param commandIdentifier: the name of the command to call
+        """
         data = packet.CommandData.encode(commandIdentifier, arguments)
         return self.request(data).decode(packet.ENCODING)
+    
+    def __init__(self):
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_tb):
+        self.closeConnection()
