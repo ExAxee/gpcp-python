@@ -29,7 +29,9 @@ class BaseHandler:
 
     @classmethod
     def loadHandlers(cls):
-        """loads all handlers in a BaseHandler derivated object"""
+        """
+        loads all handlers in a BaseHandler derivated object
+        """
 
         if hasattr(cls, "commandFunctions") and isinstance(cls.commandFunctions, dict):
             return # already loaded
@@ -66,6 +68,10 @@ class BaseHandler:
                                  + f" {func}: {func.__gpcp_metadata__}")
 
     def handleData(self, data: Union[bytes, str]):
+        """
+        calls the corrispondent handler function from a given request
+        """
+
         commandIdentifier, arguments = packet.CommandData.decode(data)
 
         try:
@@ -87,7 +93,9 @@ class BaseHandler:
 
     @command
     def requestCommands(self, _) -> Json:
-        """requests the commands list from the server and returns it."""
+        """
+        requests the commands list from the server and returns it
+        """
 
         serializedCommands = []
         for commandTrigger, metadata in self.commandFunctions.items():
@@ -107,7 +115,7 @@ def buildHandlerFromFunction(func: Callable) -> type:
     class WrapperHandler(BaseHandler):
         @unknownCommand
         def wrapper(self, commandIdentifier, arguments):
-            return func(self, commandIdentifier, arguments)
+            return json.dumps(func(self, commandIdentifier, arguments))
 
     WrapperHandler.loadHandlers()
     return WrapperHandler

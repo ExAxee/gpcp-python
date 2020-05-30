@@ -15,18 +15,21 @@ def command(arg):
     syntax, defaulting to `Bytes` for non-specified types. Those types are used to automatically
     convert the values passed to the function. Built-in types are supported.
 
-        :param arg: (optinal) the command identifier for the function,
-            defaults to the name of the function if not specified
+    :param arg: (optinal) the command identifier for the function,
+        defaults to the name of the function if not specified
     """
 
     def assertIdentifierValid(identifier: str):
+        """
+        checks if <identifier> is a valid python identifier
+        """
+
         if re.match("^[a-zA-Z_][a-zA-Z0-9_]*$", identifier):
             if keyword.iskeyword(identifier):
                 raise ValueError(f"Invalid command filter '{arg}': it is a python keyword")
         else:
             raise ValueError(f"Invalid command filter '{arg}':"
                              + " it contains special characters or starts with a number")
-
 
     def getArgumentTypes(func: Callable):
         """

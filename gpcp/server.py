@@ -4,28 +4,15 @@ from gpcp.utils.base_handler import buildHandlerFromFunction
 from gpcp.utils import packet
 
 class Server:
-
-    def __init__(self, handler: Union[type, Callable] = None, reuse_addr: bool = False):
-        if handler:
-            self.setHandler(handler)
-        else:
-            self.handler = None
-        self.connections = []
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.setblocking(False)
-
-        if not isinstance(reuse_addr, bool):
-            raise ValueError(f"invalid option '{reuse_addr}' for reuse_addr, must be True or False")
-        if reuse_addr:
-            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-    def __enter__(self):
-        return self
+    """
+    gpcp server main class, used for creating and using a server
+    """
 
     def setHandler(self, handler: Union[type, Callable]):
         """
         Sets the handler class used as a factory to instantiate a handler for every connection
-            :param handler: the handler class, usually extending BaseHandler
+
+        :param handler: the handler class, usually extending BaseHandler
         """
 
         if not hasattr(handler, "handleData"):
@@ -37,10 +24,13 @@ class Server:
 
         # this has to be a handler class
         if not callable(handler.handleData):
-            raise ValueError(f"missing core method in '{handler}' for handler class:"
+            raise ValueError(f"invalid core method in '{handler}' for handler class:"
                              + " 'handleData' is not callable")
 
+        # check for core function
         if hasattr(handler, "loadHandlers"):
+
+            # start the handlers loading
             if callable(handler.loadHandlers):
                 self.handler = handler
                 self.handler.loadHandlers()
@@ -52,7 +42,13 @@ class Server:
                              + " missing function 'loadHandlers'")
 
     def startServer(self, IP: str, port: int, buffer: int = 5):
-        """start the server and open it for connections."""
+        """
+        start the server and open it for connections
+
+        :param IP: address or ip where bind the server
+        :param port: port where bind the server
+        :param buffer: how many connections can be buffered at the same time
+        """
 
         if not isinstance(IP, str):
             raise ValueError(f"invalid option '{IP}' for IP, must be string")
@@ -63,6 +59,7 @@ class Server:
         if self.handler is None:
             raise ValueError(f"'startServer' can be used only after a handler is assigned")
 
+        # start the server
         self.socket.bind((IP, port))
         self.socket.listen(buffer)
 
@@ -91,7 +88,11 @@ class Server:
                     continue
 
     def closeConnection(self, connectionToDelete):
-        """Closes a connection from a client"""
+        """
+        Closes a connection from a client
+
+        :param connectionToDelete: connection to close
+        """
 
         deleted = False
         for i, connection in enumerate(self.connections):
@@ -112,17 +113,44 @@ class Server:
         connectionToDelete.close()
 
     def stopServer(self):
-        """Shuts down the server"""
+        """
+        Shuts down the server
+        """
+
         try:
             self.socket.shutdown(socket.SHUT_RDWR)
             self.socket.close()
         except OSError: #the server is not started so there isn't something to stop
             pass
 
-    def __del__(self):
-        self.stopServer()
+    def __init__(self, handler: Union[type, Callable] = None, reuse_addr: bool = False):
+        """
+        Initialize server
+
+        :param handler: a class or a function to call on requests
+        :param reuse_addr: set if overwrite server on the same port with the current one
+        """
+
+        if handler:
+            self.setHandler(handler)
+        else:
+            self.handler = None
+        self.connections = []
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.setblocking(False)
+
+        if not isinstance(reuse_addr, bool):
+            raise ValueError(f"invalid option '{reuse_addr}' for reuse_addr, must be True or False")
+        if reuse_addr:
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+    def __enter__(self):
+        return self
 
     def __exit__(self, exc_type, exc_value, exc_tb):
         self.stopServer()
         if exc_type and exc_value and exc_tb is not None:
             print(exc_type, "\n", exc_value, "\n", exc_tb)
+
+    def __del__(self):
+        self.stopServer()
