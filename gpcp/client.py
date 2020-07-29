@@ -89,16 +89,16 @@ class Client:
 
             setattr(namespace, command["name"], wrapper)
 
-    def request(self, request: Union[bytes, str]):
+    def request(self, data: Union[bytes, str]):
         """
         send a formatted request to the server and returns the response
 
-        :param request: the formatted request to send
+        :param data: the formatted request to send
         """
-        packet.sendAll(self.socket, request)
+        packet.sendAll(self.socket, data)
         return packet.receiveAll(self.socket)
 
-    def commandRequest(self, arguments: list, commandIdentifier: str=""):
+    def commandRequest(self, commandIdentifier: str, arguments: list):
         """
         format a command request with given arguments, send it and return the response
 
@@ -107,7 +107,7 @@ class Client:
         """
         data = packet.CommandData.encode(commandIdentifier, arguments)
         return self.request(data).decode(packet.ENCODING)
-    
+
     def __init__(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 

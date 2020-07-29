@@ -16,7 +16,7 @@ class CommandData:
         :param commandIdentifier: the command name
         :param arguments: list of all arguments
         """
-        return ((commandIdentifier if commandIdentifier else "") + json.dumps(arguments)).encode(ENCODING)
+        return (commandIdentifier + json.dumps(arguments)).encode(ENCODING)
 
     @staticmethod
     def decode(data: Union[bytes, str]) -> Tuple[str, list]:
