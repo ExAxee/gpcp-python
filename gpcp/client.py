@@ -44,11 +44,11 @@ class Client:
 
         self.socket.close()
 
-    def loadInterface(self, raw_interface: list, namespace: type):
+    def loadInterface(self, namespace: type, raw_interface: list=None):
         """
         Given a raw interface string or dict it will load the remote interface and make it
-        available to the user with <namespace>.<command>(*args, **kwargs), usually namespace is
-        the same as the Client class.
+        available to the user with `<namespace>.<command>(*args, **kwargs)`, usually
+        namespace is the same as the Client class.
 
         this is the definition of a remote command:
         {
@@ -63,11 +63,15 @@ class Client:
 
         every command MUST follow the above definition
 
-        :param raw_interface: raw interface string or dict to load
+        :param raw_interface: raw interface string or dict to load. If None the interface
+            will be loaded from the server by calling the command `requestCommands()`
         :param namespace: the object where the commands will be loaded
         """
 
-        if isinstance(raw_interface, bytes) or isinstance(raw_interface, str):
+        if raw_interface is None:
+            raw_interface = self.commandRequest("requestCommands", [])
+
+        if isinstance(raw_interface, (bytes, str)):
             raw_interface = json.loads(raw_interface)
 
         for command in raw_interface:
