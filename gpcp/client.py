@@ -44,11 +44,11 @@ class Client:
 
         self.socket.close()
 
-    def loadInterface(self, raw_interface: list, namespace: type):
+    def loadInterface(self, namespace: type, raw_interface: list=None):
         """
         Given a raw interface string or dict it will load the remote interface and make it
-        available to the user with <namespace>.<command>(*args, **kwargs), usually namespace is
-        the same as the Client class.
+        available to the user with `<namespace>.<command>(*args, **kwargs)`, usually
+        namespace is the same as the Client class.
 
         this is the definition of a remote command:
         {
@@ -63,11 +63,15 @@ class Client:
 
         every command MUST follow the above definition
 
-        :param raw_interface: raw interface string or dict to load
+        :param raw_interface: raw interface string or dict to load. If None the interface
+            will be loaded from the server by calling the command `requestCommands()`
         :param namespace: the object where the commands will be loaded
         """
 
-        if isinstance(raw_interface, bytes) or isinstance(raw_interface, str):
+        if raw_interface is None:
+            raw_interface = self.commandRequest("requestCommands", [])
+
+        if isinstance(raw_interface, (bytes, str)):
             raw_interface = json.loads(raw_interface)
 
         for command in raw_interface:
@@ -89,16 +93,16 @@ class Client:
 
             setattr(namespace, command["name"], wrapper)
 
-    def request(self, request: Union[bytes, str]):
+    def request(self, data: Union[bytes, str]):
         """
         send a formatted request to the server and returns the response
 
-        :param request: the formatted request to send
+        :param data: the formatted request to send
         """
-        packet.sendAll(self.socket, request)
+        packet.sendAll(self.socket, data)
         return packet.receiveAll(self.socket)
 
-    def commandRequest(self, arguments: list, commandIdentifier: str=""):
+    def commandRequest(self, commandIdentifier: str, arguments: list):
         """
         format a command request with given arguments, send it and return the response
 
@@ -107,7 +111,7 @@ class Client:
         """
         data = packet.CommandData.encode(commandIdentifier, arguments)
         return self.request(data).decode(packet.ENCODING)
-    
+
     def __init__(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 

@@ -1,5 +1,3 @@
-from gpcp.utils import packet
-
 class TypeBase:
     @staticmethod
     def serialize(value):
@@ -27,10 +25,23 @@ class Bytes(TypeBase):
     def deserialize(entry):
         return entry.encode("ascii")
 
-class String(JsonBuiltinType): pass
-class Integer(JsonBuiltinType): pass
-class Float(JsonBuiltinType): pass
-class Json(JsonBuiltinType): pass
+class String(JsonBuiltinType):
+    pass
+
+class Boolean(JsonBuiltinType):
+    pass
+
+class Integer(JsonBuiltinType):
+    pass
+
+class Float(JsonBuiltinType):
+    pass
+
+class JsonObject(JsonBuiltinType):
+    pass
+
+class JsonArray(JsonBuiltinType):
+    pass
 
 
 def getIfBuiltIn(argumentType):
@@ -39,17 +50,24 @@ def getIfBuiltIn(argumentType):
         :param argumentType: a type to convert if it's a built-in one
     """
 
-    if argumentType == bytes:
-        return Bytes
+    if argumentType == dict:
+        return JsonObject
+    if argumentType == list:
+        return JsonArray
     if argumentType == str:
         return String
+    if argumentType == bool:
+        return Boolean
     if argumentType == int:
         return Integer
     if argumentType == float:
         return Float
+    if argumentType == bytes:
+        return Bytes
     return argumentType
 
-allTypesArray = [Bytes, String, Integer, Float, Json]
+# DO NOT MODIFY THE ORDER OF THIS ARRAY unless you also change the IDs in all other implementations
+allTypesArray = [JsonObject, JsonArray, String, Boolean, Integer, Float, Bytes]
 
 def getFromId(integerId: int):
     """
