@@ -30,7 +30,7 @@ class Client:
         """
         Closes the connection to the server
 
-        :param mode: r = read, w = write, rw = read and write
+        :param mode: r = read, w = write, rw = read and write (default: 'rw')
         """
 
         if mode == "rw":
@@ -44,10 +44,10 @@ class Client:
 
         self.socket.close()
 
-    def loadInterface(self, namespace: type, raw_interface: list=None):
+    def loadInterface(self, namespace: type, raw_interface: list = None):
         """
-        Given a raw interface string or dict it will load the remote interface and make it
-        available to the user with `<namespace>.<command>(*args, **kwargs)`, usually
+        Retrieve and load the remote interface and make it available to
+        the user with `<namespace>.<command>(*args, **kwargs)`, usually
         namespace is the same as the Client class.
 
         this is the definition of a remote command:
@@ -63,9 +63,9 @@ class Client:
 
         every command MUST follow the above definition
 
+        :param namespace: the object where the commands will be loaded
         :param raw_interface: raw interface string or dict to load. If None the interface
             will be loaded from the server by calling the command `requestCommands()`
-        :param namespace: the object where the commands will be loaded
         """
 
         if raw_interface is None:

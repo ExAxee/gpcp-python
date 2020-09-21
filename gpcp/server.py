@@ -12,7 +12,7 @@ class Server:
         """
         Sets the handler class used as a factory to instantiate a handler for every connection
 
-        :param handler: the handler class, usually extending BaseHandler
+        :param handler: the handler class, usually extending utils.base_handler.BaseHandler
         """
 
         if not hasattr(handler, "handleData"):
@@ -99,7 +99,7 @@ class Server:
             if connection[0] is connectionToDelete:
                 data = connection[2].onDisonnected(self, connection[0], connection[1])
                 if data is not None:
-                    packet.sendAll(connection, data)
+                    packet.sendAll(connection[0], data)
 
                 del self.connections[i]
                 deleted = True
@@ -140,7 +140,7 @@ class Server:
         self.socket.setblocking(False)
 
         if not isinstance(reuse_addr, bool):
-            raise ValueError(f"invalid option '{reuse_addr}' for reuse_addr, must be True or False")
+            raise ValueError(f"invalid option '{reuse_addr}' for reuse_addr, must be 'True' or 'False'")
         if reuse_addr:
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
