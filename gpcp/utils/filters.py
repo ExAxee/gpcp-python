@@ -40,7 +40,7 @@ def command(arg):
         typedArguments = func.__annotations__
         argumentTypes = []
 
-        for argName in func.__code__.co_varnames[2:func.__code__.co_argcount]:
+        for argName in func.__code__.co_varnames[1:func.__code__.co_argcount]:
             argumentType = typedArguments.get(argName, Bytes)
             argumentTypes.append((getIfBuiltIn(argumentType), argName))
 

@@ -88,11 +88,11 @@ class BaseHandler:
             convertedArguments.append(argType.deserialize(argument))
 
         # convert the return value to `bytes` from the specified type
-        returnValue = function(self, commandIdentifier, *convertedArguments)
+        returnValue = function(self, *convertedArguments)
         return json.dumps(returnType.serialize(returnValue))
 
     @command
-    def requestCommands(self, _) -> JsonObject:
+    def requestCommands(self) -> JsonObject:
         """
         requests the commands list from the server and returns it
         """
