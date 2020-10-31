@@ -2,7 +2,7 @@ import json
 from typing import Callable, Union
 from gpcp.utils import packet
 from gpcp.utils.filters import command, unknownCommand, FunctionType
-from gpcp.utils.base_types import toId, Json
+from gpcp.utils.base_types import toId, JsonObject
 
 class BaseHandler:
 
@@ -92,7 +92,7 @@ class BaseHandler:
         return json.dumps(returnType.serialize(returnValue))
 
     @command
-    def requestCommands(self, _) -> Json:
+    def requestCommands(self, _) -> JsonObject:
         """
         requests the commands list from the server and returns it
         """
