@@ -3,6 +3,7 @@ from typing import Callable, Union
 from gpcp.utils import packet
 from gpcp.utils.filters import command, unknownCommand, FunctionType
 from gpcp.utils.base_types import toId, JsonObject
+from gpcp.utils.Errors import HandlerLoadingError
 
 class BaseHandler:
 
@@ -52,20 +53,20 @@ class BaseHandler:
                 commandTrigger, description, returnType, arguments = func.__gpcp_metadata__[1:]
 
                 if commandTrigger in cls.commandFunctions:
-                    raise ValueError(f"command {commandTrigger} already registered and"
-                                     + f" mapped to {cls.commandFunctions[commandTrigger]}")
+                    raise HandlerLoadingError(f"command {commandTrigger} already registered and"
+                                            + f" mapped to {cls.commandFunctions[commandTrigger]}")
                 cls.commandFunctions[commandTrigger] = (func, description, returnType, arguments)
 
             elif functionType == FunctionType.unknown:
                 # func.__gpcp_metadata__ = (unknown,)
                 if cls.unknownCommandFunction is not None:
-                    raise ValueError(f"handler for unknown commands already registered"
-                                     + f" and mapped to {cls.unknownCommandFunction}")
+                    raise HandlerLoadingError(f"handler for unknown commands already registered"
+                                            + f" and mapped to {cls.unknownCommandFunction}")
                 cls.unknownCommandFunction = func
 
             else:
-                raise ValueError(f"invalid __gpcp_metadata__ for function"
-                                 + f" {func}: {func.__gpcp_metadata__}")
+                raise HandlerLoadingError(f"invalid __gpcp_metadata__ for function"
+                                        + f" {func}: {func.__gpcp_metadata__}")
 
     def handleData(self, data: Union[bytes, str]):
         """

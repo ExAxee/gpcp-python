@@ -3,6 +3,7 @@ import re
 import keyword
 from typing import Callable
 from gpcp.utils.base_types import getIfBuiltIn, Bytes
+from gpcp.utils.Errors import AnnotationError
 
 class FunctionType(enum.Enum):
     command = 0
@@ -26,10 +27,10 @@ def command(arg):
 
         if re.match("^[a-zA-Z_][a-zA-Z0-9_]*$", identifier):
             if keyword.iskeyword(identifier):
-                raise ValueError(f"Invalid command filter '{arg}': it is a python keyword")
+                raise AnnotationError(f"Invalid command filter '{arg}': it is a python keyword")
         else:
-            raise ValueError(f"Invalid command filter '{arg}':"
-                             + " it contains special characters or starts with a number")
+            raise AnnotationError(f"Invalid command filter '{arg}':"
+                                 + " it contains special characters or starts with a number")
 
     def getArgumentTypes(func: Callable):
         """

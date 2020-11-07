@@ -2,6 +2,7 @@ import socket
 from typing import Union, Callable
 from gpcp.utils.base_handler import buildHandlerFromFunction
 from gpcp.utils import packet
+from gpcp.utils.Errors import AddressError, ConfigurationError, ShutdownError
 
 class Server:
     """
@@ -18,14 +19,14 @@ class Server:
         if not hasattr(handler, "handleData"):
             # suppose this is a function
             if not callable(handler):
-                raise ValueError(f"'{handler}' is neither a handler class nor a function")
+                raise ConfigurationError(f"'{handler}' is neither a handler class nor a function")
             self.handler = buildHandlerFromFunction(handler)
             return
 
         # this has to be a handler class
         if not callable(handler.handleData):
-            raise ValueError(f"invalid core method in '{handler}' for handler class:"
-                             + " 'handleData' is not callable")
+            raise ConfigurationError(f"invalid core method in '{handler}' for handler class:"
+                                    + " 'handleData' is not callable")
 
         # check for core function
         if hasattr(handler, "loadHandlers"):
@@ -35,11 +36,11 @@ class Server:
                 self.handler = handler
                 self.handler.loadHandlers()
             else:
-                raise ValueError(f"invalid core method in '{handler}' for handler class,"
-                                 + " 'loadHandlers' is not callable")
+                raise ConfigurationError(f"invalid core method in '{handler}' for handler class,"
+                                        + " 'loadHandlers' is not callable")
         else:
-            raise ValueError(f"missing core method in '{handler}' for handler class,"
-                             + " missing function 'loadHandlers'")
+            raise ConfigurationError(f"missing core method in '{handler}' for handler class,"
+                                    + " missing function 'loadHandlers'")
 
     def startServer(self, IP: str, port: int, buffer: int = 5):
         """
@@ -51,13 +52,13 @@ class Server:
         """
 
         if not isinstance(IP, str):
-            raise ValueError(f"invalid option '{IP}' for IP, must be string")
+            raise ConfigurationError(f"invalid option '{IP}' for IP, must be string")
         if not isinstance(port, int):
-            raise ValueError(f"invalid option '{port}' for port, must be integer")
+            raise ConfigurationError(f"invalid option '{port}' for port, must be integer")
         if not isinstance(buffer, int):
-            raise ValueError(f"invalid option '{buffer}' for buffer, must be integer")
+            raise ConfigurationError(f"invalid option '{buffer}' for buffer, must be integer")
         if self.handler is None:
-            raise ValueError(f"'startServer' can be used only after a handler is assigned")
+            raise ConfigurationError(f"'startServer' can be used only after a handler is assigned")
 
         # start the server
         self.socket.bind((IP, port))
@@ -106,7 +107,7 @@ class Server:
                 break
 
         if not deleted:
-            raise ValueError(
+            raise ShutdownError(
                 f"connection {connectionToDelete.getsockname()} is not a connection of this server")
 
         connectionToDelete.shutdown(socket.SHUT_RDWR)
@@ -140,7 +141,7 @@ class Server:
         self.socket.setblocking(False)
 
         if not isinstance(reuse_addr, bool):
-            raise ValueError(f"invalid option '{reuse_addr}' for reuse_addr, must be 'True' or 'False'")
+            raise ConfigurationError(f"invalid option '{reuse_addr}' for reuse_addr, must be 'True' or 'False'")
         if reuse_addr:
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
