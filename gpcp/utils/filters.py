@@ -29,8 +29,9 @@ def command(arg):
             if keyword.iskeyword(identifier):
                 raise AnnotationError(f"Invalid command filter '{arg}': it is a python keyword")
         else:
-            raise AnnotationError(f"Invalid command filter '{arg}':"
-                                 + " it contains special characters or starts with a number")
+            raise AnnotationError(
+                f"Invalid command filter '{arg}': contains special characters or starts with a number"
+            )
 
     def getArgumentTypes(func: Callable):
         """

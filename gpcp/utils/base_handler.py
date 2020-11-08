@@ -53,20 +53,25 @@ class BaseHandler:
                 commandTrigger, description, returnType, arguments = func.__gpcp_metadata__[1:]
 
                 if commandTrigger in cls.commandFunctions:
-                    raise HandlerLoadingError(f"command {commandTrigger} already registered and"
-                                            + f" mapped to {cls.commandFunctions[commandTrigger]}")
+                    raise HandlerLoadingError(
+                        f"tried to load twice the same command '{commandTrigger}', already " +
+                        f"registered and mapped to function '{cls.commandFunctions[commandTrigger][0].__name__}'"
+                    )
                 cls.commandFunctions[commandTrigger] = (func, description, returnType, arguments)
 
             elif functionType == FunctionType.unknown:
                 # func.__gpcp_metadata__ = (unknown,)
                 if cls.unknownCommandFunction is not None:
-                    raise HandlerLoadingError(f"handler for unknown commands already registered"
-                                            + f" and mapped to {cls.unknownCommandFunction}")
+                    raise HandlerLoadingError(
+                        f"tried to load twice the handler for unknown commands, " +
+                        f"already registered and mapped to function '{cls.unknownCommandFunction.__name__}'"
+                    )
                 cls.unknownCommandFunction = func
 
             else:
-                raise HandlerLoadingError(f"invalid __gpcp_metadata__ for function"
-                                        + f" {func}: {func.__gpcp_metadata__}")
+                raise HandlerLoadingError(
+                    f"invalid __gpcp_metadata__ for function {func}: {func.__gpcp_metadata__}"
+                )
 
     def handleData(self, data: Union[bytes, str]):
         """

@@ -17,19 +17,32 @@ class Server:
         :param handler: the handler class, usually extending utils.base_handler.BaseHandler
         """
 
+        #check for handleData core function
         if not hasattr(handler, "handleData"):
+
             # suppose this is a function
             if not callable(handler):
-                raise ConfigurationError(f"'{handler}' is neither a handler class nor a function")
+                raise ConfigurationError(
+                    f"{handler.__name__} is neither a handler class nor a function"
+                )
             self.handler = buildHandlerFromFunction(handler)
             return
 
-        # this has to be a handler class
-        if not callable(handler.handleData):
-            raise ConfigurationError(f"invalid core method in '{handler}' for handler class:"
-                                    + " 'handleData' is not callable")
+        elif hasattr(handler, "handleData"):
 
-        # check for core function
+            # this has to be a handler class
+            if not callable(handler.handleData):
+                raise ConfigurationError(
+                    f"invalid core method in '{handler.__name__}' for handler class: 'handleData' is not callable"
+                )
+
+        else:
+
+            raise ConfigurationError(
+                f"missing core method in '{handler.__name__}' for handler class, missing function 'handleData'"
+            )
+
+        # check for loadHandlers core function
         if hasattr(handler, "loadHandlers"):
 
             # start the handlers loading
@@ -37,11 +50,13 @@ class Server:
                 self.handler = handler
                 self.handler.loadHandlers()
             else:
-                raise ConfigurationError(f"invalid core method in '{handler}' for handler class,"
-                                        + " 'loadHandlers' is not callable")
+                raise ConfigurationError(
+                    f"invalid core method in '{handler.__name__}' for handler class, 'loadHandlers' is not callable"
+                )
         else:
-            raise ConfigurationError(f"missing core method in '{handler}' for handler class,"
-                                    + " missing function 'loadHandlers'")
+            raise ConfigurationError(
+                f"missing core method in '{handler.__name__}' for handler class, missing function 'loadHandlers'"
+            )
 
     def startServer(self, IP: str, port: int, buffer: int = 5):
         """
@@ -83,7 +98,7 @@ class Server:
                 try:
                     data = packet.receiveAll(singleConnection.socket)
                     if data is None: # connection was closed
-                        self.closeConnection(singleConnection.socket)
+                        self.closeConnection(singleConnection.socket.getpeername()[0], singleConnection.socket.getpeername()[1])
                     else: # send the handler response to the client
                         packet.sendAll(singleConnection.socket, singleConnection.handler.handleData(data))
                 except BlockingIOError:
@@ -110,7 +125,8 @@ class Server:
 
         if not deleted:
             raise ShutdownError(
-                f"connection {connection.socket.getsockname()} is not a connection of this server")
+                f"connection {connection.socket.getsockname()} is not a connection of this server"
+            )
 
         connection.socket.shutdown(socket.SHUT_RDWR)
         connection.socket.close()
