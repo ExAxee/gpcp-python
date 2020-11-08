@@ -3,6 +3,7 @@ from typing import Callable, Union
 from gpcp.utils import packet
 from gpcp.utils.filters import command, unknownCommand, FunctionType
 from gpcp.utils.base_types import toId, JsonObject
+from gpcp.utils.Errors import HandlerLoadingError
 
 import logging
 logger = logging.getLogger(__name__)
@@ -59,20 +60,25 @@ class BaseHandler:
                 commandTrigger, description, returnType, arguments = func.__gpcp_metadata__[1:]
 
                 if commandTrigger in cls.commandFunctions:
-                    raise ValueError(f"command {commandTrigger} already registered and"
-                                     + f" mapped to {cls.commandFunctions[commandTrigger]}")
+                    raise HandlerLoadingError(
+                        f"tried to load twice the same command '{commandTrigger}', already " +
+                        f"registered and mapped to function '{cls.commandFunctions[commandTrigger][0].__name__}'"
+                    )
                 cls.commandFunctions[commandTrigger] = (func, description, returnType, arguments)
 
             elif functionType == FunctionType.unknown:
                 # func.__gpcp_metadata__ = (unknown,)
                 if cls.unknownCommandFunction is not None:
-                    raise ValueError(f"handler for unknown commands already registered"
-                                     + f" and mapped to {cls.unknownCommandFunction}")
+                    raise HandlerLoadingError(
+                        f"tried to load twice the handler for unknown commands, " +
+                        f"already registered and mapped to function '{cls.unknownCommandFunction.__name__}'"
+                    )
                 cls.unknownCommandFunction = func
 
             else:
-                raise ValueError(f"invalid __gpcp_metadata__ for function"
-                                 + f" {func.__name__}: {func.__gpcp_metadata__}")
+                raise HandlerLoadingError(
+                    f"invalid __gpcp_metadata__ for function {func}: {func.__gpcp_metadata__}"
+                )
 
         logger.info(f"found {'no' if cls.unknownCommandFunction is None else 'a'} unknownCommandFunction"
                     + f" and {len(cls.commandFunctions)} commandFunctions "

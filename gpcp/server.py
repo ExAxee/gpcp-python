@@ -2,6 +2,8 @@ import socket
 from typing import Union, Callable
 from gpcp.utils.base_handler import buildHandlerFromFunction
 from gpcp.utils import packet
+from gpcp.utils.Errors import AddressError, ConfigurationError, ShutdownError
+from gpcp.utils.connection import Connection
 
 import logging
 logger = logging.getLogger(__name__)
@@ -20,19 +22,27 @@ class Server:
 
         logger.debug(f"setHandler() called with handler={handler}")
 
+        #check for handleData core function
         if not hasattr(handler, "handleData"):
             # suppose this is a function
             if not callable(handler):
-                raise ValueError(f"'{handler}' is neither a handler class nor a function")
+                raise ConfigurationError(
+                    f"{handler.__name__} is neither a handler class nor a function"
+                )
             self.handler = buildHandlerFromFunction(handler)
             return
+        elif hasattr(handler, "handleData"):
+            # this has to be a handler class
+            if not callable(handler.handleData):
+                raise ConfigurationError(
+                    f"invalid core method in '{handler.__name__}' for handler class: 'handleData' is not callable"
+                )
+        else:
+            raise ConfigurationError(
+                f"missing core method in '{handler.__name__}' for handler class, missing function 'handleData'"
+            )
 
-        # this has to be a handler class
-        if not callable(handler.handleData):
-            raise ValueError(f"invalid core method in '{handler}' for handler class:"
-                             + " 'handleData' is not callable")
-
-        # check for core function
+        # check for loadHandlers core function
         if hasattr(handler, "loadHandlers"):
 
             # start the handlers loading
@@ -40,11 +50,13 @@ class Server:
                 self.handler = handler
                 self.handler.loadHandlers()
             else:
-                raise ValueError(f"invalid core method in '{handler}' for handler class,"
-                                 + " 'loadHandlers' is not callable")
+                raise ConfigurationError(
+                    f"invalid core method in '{handler.__name__}' for handler class, 'loadHandlers' is not callable"
+                )
         else:
-            raise ValueError(f"missing core method in '{handler}' for handler class,"
-                             + " missing function 'loadHandlers'")
+            raise ConfigurationError(
+                f"missing core method in '{handler.__name__}' for handler class, missing function 'loadHandlers'"
+            )
 
     def startServer(self, host: str, port: int, buffer: int = 5):
         """
@@ -58,13 +70,13 @@ class Server:
         logger.info(f"startServer() called with host={host}, port={port}, buffer={buffer}")
 
         if not isinstance(host, str):
-            raise ValueError(f"invalid option '{host}' for host, must be string")
+            raise ConfigurationError(f"invalid option '{host}' for host, must be string")
         if not isinstance(port, int):
-            raise ValueError(f"invalid option '{port}' for port, must be integer")
+            raise ConfigurationError(f"invalid option '{port}' for port, must be integer")
         if not isinstance(buffer, int):
-            raise ValueError(f"invalid option '{buffer}' for buffer, must be integer")
+            raise ConfigurationError(f"invalid option '{buffer}' for buffer, must be integer")
         if self.handler is None:
-            raise ValueError(f"'startServer' can be used only after a handler is assigned")
+            raise ConfigurationError(f"'startServer' can be used only after a handler is assigned")
 
         # start the server
         self.socket.bind((host, port))
@@ -81,48 +93,50 @@ class Server:
                 # connection, so it can't be used statically, but it must be instantiated
                 handler = self.handler()
                 handler.onConnected(self, connection, address)
-                self.connections.append((connection, address, handler))
+                self.connections.append(Connection(connection, address, handler))
             except BlockingIOError:
                 pass # there is no connection yet
 
-            for sock, address, handler in self.connections:
+            for singleConnection in self.connections:
                 try:
-                    data = packet.receiveAll(sock)
+                    data = packet.receiveAll(singleConnection.socket)
                     if data is None: # connection was closed
-                        logger.info(f"received None data from {address}, closing connection")
-                        self.closeConnection(sock)
+                        logger.info(f"received None data from {address}, closing connection: ")
+                        self.closeConnection(singleConnection.host, singleConnection.port)
                     else: # send the handler response to the client
                         logger.debug(f"received data from {address}")
-                        packet.sendAll(sock, handler.handleData(data))
+                        packet.sendAll(singleConnection.socket, singleConnection.handler.handleData(data))
                 except BlockingIOError:
                     continue
 
-    def closeConnection(self, connectionToDelete):
+    def closeConnection(self, host, port):
         """
         Closes a connection from a client
 
-        :param connectionToDelete: connection to close
+        :param ip: ip address of connection to close
+        :param port: port of connection to close
         """
 
-        logger.info(f"closeConnection() called with connectionToDelete={connectionToDelete}")
+        logger.info(f"closeConnection() called with host={host}, port={port}")
 
         deleted = False
         for i, connection in enumerate(self.connections):
-            if connection[0] is connectionToDelete:
-                data = connection[2].onDisonnected(self, connection[0], connection[1])
+            if connection.host == host and connection.port == port:
+                data = connection.handler.onDisonnected(self, connection.socket, (connection.host, connection.port))
                 if data is not None:
-                    packet.sendAll(connection[0], data)
+                    packet.sendAll(connection.socket, data)
 
                 del self.connections[i]
                 deleted = True
                 break
 
         if not deleted:
-            raise ValueError(
-                f"connection {connectionToDelete.getsockname()} is not a connection of this server")
+            raise ShutdownError(
+                f"connection {connection.socket.getsockname()} is not a connection of this server"
+            )
 
-        connectionToDelete.shutdown(socket.SHUT_RDWR)
-        connectionToDelete.close()
+        connection.socket.shutdown(socket.SHUT_RDWR)
+        connection.socket.close()
 
     def stopServer(self):
         """
@@ -157,7 +171,7 @@ class Server:
         self.socket.setblocking(False)
 
         if not isinstance(reuseAddress, bool):
-            raise ValueError(f"invalid option '{reuseAddress}' for reuseAddress, must be 'True' or 'False'")
+            raise ConfigurationError(f"invalid option '{reuseAddress}' for reuseAddress, must be 'True' or 'False'")
         if reuseAddress:
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
@@ -166,7 +180,7 @@ class Server:
 
     def __exit__(self, exc_type, exc_value, exc_tb):
         self.stopServer()
-        if exc_type and exc_value and exc_tb is not None:
+        if exc_type is not None and exc_value is not None and exc_tb is not None:
             print(exc_type, "\n", exc_value, "\n", exc_tb)
 
     def __del__(self):

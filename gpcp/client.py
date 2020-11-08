@@ -3,6 +3,7 @@ import json
 from typing import Union
 from gpcp.utils.base_types import getFromId
 from gpcp.utils import packet
+from gpcp.utils.Errors import AddressError, ShutdownError
 
 import logging
 logger = logging.getLogger(__name__)
@@ -24,9 +25,9 @@ class Client:
         logger.info(f"connect() called with host={host}, port={port}")
 
         if not isinstance(host, str):
-            raise ValueError(f"invalid option '{host}' for host, must be string")
+            raise AddressError(f"invalid option '{host}' for host, must be string")
         if not isinstance(port, int):
-            raise ValueError(f"invalid option '{port}' for port, must be integer")
+            raise AddressError(f"invalid option '{port}' for port, must be integer")
 
         self.socket.connect((host, port))
         return self
@@ -47,7 +48,7 @@ class Client:
         elif mode == "w":
             self.socket.shutdown(socket.SHUT_WR)
         else:
-            raise ValueError(f"invalid option '{mode}' for mode, must be 'r' or 'w' or 'rw'")
+            raise ShutdownError(f"invalid option '{mode}' for mode, must be 'r' or 'w' or 'rw'")
 
         self.socket.close()
 
