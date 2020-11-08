@@ -4,6 +4,9 @@ import keyword
 from typing import Callable
 from gpcp.utils.base_types import getIfBuiltIn, Bytes
 
+import logging
+logger = logging.getLogger(__name__)
+
 class FunctionType(enum.Enum):
     command = 0
     unknown = 1
@@ -55,21 +58,33 @@ def command(arg):
         returnType = func.__annotations__.get("return", Bytes)
         return getIfBuiltIn(returnType)
 
+    def getDescription(func: Callable):
+        if func.__doc__ is None:
+            return None
+
+        doc = func.__doc__.strip()
+        if doc == "":
+            return None
+        return doc
+
     # `@command` used without parameters
     if callable(arg):
         assertIdentifierValid(arg.__name__)
-        arg.__gpcp_metadata__ = (FunctionType.command, arg.__name__,
-                                 arg.__doc__, getReturnType(arg), getArgumentTypes(arg))
+        arg.__gpcp_metadata__ = (FunctionType.command, arg.__name__, getDescription(arg),
+                                 getReturnType(arg), getArgumentTypes(arg))
+        logger.debug(f"@command(): assigned metadata to {arg.__name__}: {arg.__gpcp_metadata__}")
         return arg
 
     # `@command` used with name parameter (e.g. @command("start"))
     assertIdentifierValid(arg)
     def wrapper(func: Callable):
-        func.__gpcp_metadata__ = (FunctionType.command, arg,
-                                  func.__doc__, getReturnType(func), getArgumentTypes(func))
+        func.__gpcp_metadata__ = (FunctionType.command, arg, getDescription(func),
+                                  getReturnType(func), getArgumentTypes(func))
+        logger.debug(f"@command(\"{arg}\"): assigned metadata to {func.__name__}: {func.__gpcp_metadata__}")
         return func
     return wrapper # the returned function when called adds the metadata to `func` and returns it
 
 def unknownCommand(func: Callable):
     func.__gpcp_metadata__ = (FunctionType.unknown,)
+    logger.debug(f"@unknownCommand(): assigned metadata to {func.__name__}: {func.__gpcp_metadata__}")
     return func

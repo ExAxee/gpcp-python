@@ -4,6 +4,9 @@ from gpcp.utils import packet
 from gpcp.utils.filters import command, unknownCommand, FunctionType
 from gpcp.utils.base_types import toId, JsonObject
 
+import logging
+logger = logging.getLogger(__name__)
+
 class BaseHandler:
 
     # to be overridden
@@ -15,6 +18,7 @@ class BaseHandler:
         :param connection: the just opened socket connection
         :param address: the address of the just opened connection
         """
+        logger.debug(f"base onConnected called with address={address}")
 
     def onDisonnected(self, server, connection, address) -> Union[bytes, None]:
         """
@@ -26,6 +30,7 @@ class BaseHandler:
         :param address: the address of the connection being closed
         :returns: a message or None
         """
+        logger.debug(f"base onDisonnected called with address={address}")
 
     @classmethod
     def loadHandlers(cls):
@@ -33,8 +38,10 @@ class BaseHandler:
         loads all handlers in a BaseHandler derivated object
         """
 
+        logger.debug(f"loadHandlers called on class " + cls.__name__)
         if hasattr(cls, "commandFunctions") and isinstance(cls.commandFunctions, dict):
-            return # already loaded
+            logger.warning(f"commands already loaded for class " + cls.__name__)
+            return
         cls.commandFunctions = {}
         cls.unknownCommandFunction = None
 
@@ -65,20 +72,28 @@ class BaseHandler:
 
             else:
                 raise ValueError(f"invalid __gpcp_metadata__ for function"
-                                 + f" {func}: {func.__gpcp_metadata__}")
+                                 + f" {func.__name__}: {func.__gpcp_metadata__}")
+
+        logger.info(f"found {'no' if cls.unknownCommandFunction is None else 'a'} unknownCommandFunction"
+                    + f" and {len(cls.commandFunctions)} commandFunctions "
+                    + str([f[0].__name__ for f in cls.commandFunctions.values()]))
 
     def handleData(self, data: Union[bytes, str]):
         """
         calls the corrispondent handler function from a given request
         """
 
+        logger.debug(f"handleData called on {self.__class__.__name__} with data={data}")
         commandIdentifier, arguments = packet.CommandData.decode(data)
+        logger.debug(f"commandIdentifier={commandIdentifier} and arguments={arguments}")
 
         try:
             function, _, returnType, argumentTypes = self.commandFunctions[commandIdentifier]
         except KeyError:
+            logger.info(f"unknown command {commandIdentifier}")
             if self.unknownCommandFunction is None:
-                return b"Unknown command" # TODO some other type of error handling
+                logger.warning(f"missing unknownCommandFunction when handling {commandIdentifier}: returning \"\"")
+                return b""
             return self.unknownCommandFunction(commandIdentifier, arguments)
 
         # convert parameters from `bytes` to the types of `function` arguments
@@ -89,6 +104,7 @@ class BaseHandler:
 
         # convert the return value to `bytes` from the specified type
         returnValue = function(self, *convertedArguments)
+        logger.debug(f"return value for command {commandIdentifier}: {returnValue}")
         return json.dumps(returnType.serialize(returnValue))
 
     @command
@@ -96,6 +112,8 @@ class BaseHandler:
         """
         requests the commands list from the server and returns it
         """
+
+        logger.debug(f"requestCommands called")
 
         serializedCommands = []
         for commandTrigger, metadata in self.commandFunctions.items():

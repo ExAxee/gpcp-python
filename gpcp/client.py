@@ -4,6 +4,9 @@ from typing import Union
 from gpcp.utils.base_types import getFromId
 from gpcp.utils import packet
 
+import logging
+logger = logging.getLogger(__name__)
+
 class Client:
     """
     gpcp client main class, used for creating and using a client
@@ -17,6 +20,8 @@ class Client:
         :param port: the port on the host server
         :returns: self, so that this function can be called inside a `with`
         """
+
+        logger.info(f"connect() called with host={host}, port={port}")
 
         if not isinstance(host, str):
             raise ValueError(f"invalid option '{host}' for host, must be string")
@@ -33,6 +38,8 @@ class Client:
         :param mode: r = read, w = write, rw = read and write (default: 'rw')
         """
 
+        logger.info(f"closeConnection() called with mode={mode}")
+
         if mode == "rw":
             self.socket.shutdown(socket.SHUT_RDWR)
         elif mode == "r":
@@ -44,7 +51,7 @@ class Client:
 
         self.socket.close()
 
-    def loadInterface(self, namespace: type, raw_interface: list = None):
+    def loadInterface(self, namespace: type, rawInterface: list = None):
         """
         Retrieve and load the remote interface and make it available to
         the user with `<namespace>.<command>(*args, **kwargs)`, usually
@@ -58,23 +65,25 @@ class Client:
             doc: str
         }
 
-        raw_interface can have multiple commands in a array, like so:
-        raw_interface = [command_1, command_2, command_3, etc]
+        rawInterface can have multiple commands in a array, like so:
+        rawInterface = [command_1, command_2, command_3, etc]
 
         every command MUST follow the above definition
 
         :param namespace: the object where the commands will be loaded
-        :param raw_interface: raw interface string or dict to load. If None the interface
+        :param rawInterface: raw interface string or dict to load. If None the interface
             will be loaded from the server by calling the command `requestCommands()`
         """
 
-        if raw_interface is None:
-            raw_interface = self.commandRequest("requestCommands", [])
+        logger.debug(f"loadInterface() called with namespace={namespace}, rawInterface={rawInterface}")
 
-        if isinstance(raw_interface, (bytes, str)):
-            raw_interface = json.loads(raw_interface)
+        if rawInterface is None:
+            rawInterface = self.commandRequest("requestCommands", [])
 
-        for command in raw_interface:
+        if isinstance(rawInterface, (bytes, str)):
+            rawInterface = json.loads(rawInterface)
+
+        for command in rawInterface:
             def generateWrapperFunction():
                 def wrapper(*args):
                     arguments = []
@@ -91,26 +100,32 @@ class Client:
             wrapper.returnType = getFromId(command["return_type"])
             wrapper.__doc__ = command["description"]
 
+            logger.debug(f"loaded command with commandIdentifier={wrapper.commandIdentifier}, description=\"{wrapper.__doc__}\""
+                         + f", argumentTypes={wrapper.argumentTypes}, returnType={wrapper.returnType}")
             setattr(namespace, command["name"], wrapper)
 
     def request(self, data: Union[bytes, str]):
         """
-        send a formatted request to the server and returns the response
+        send a formatted request to the server and return the response
 
         :param data: the formatted request to send
         """
+        logger.debug(f"request() called with data={data}")
         packet.sendAll(self.socket, data)
         return packet.receiveAll(self.socket)
 
-    def commandRequest(self, commandIdentifier: str, arguments: list):
+    def commandRequest(self, commandIdentifier: str, arguments: list) -> str:
         """
         format a command request with given arguments, send it and return the response
 
         :param arguments: list of all arguments to send to the server
         :param commandIdentifier: the name of the command to call
         """
+        logger.debug(f"commandRequest() called with commandIdentifier={commandIdentifier}, arguments={arguments}")
         data = packet.CommandData.encode(commandIdentifier, arguments)
-        return self.request(data).decode(packet.ENCODING)
+        result = self.request(data).decode(packet.ENCODING)
+        logger.debug(f"commandRequest() received result={result}")
+        return result
 
     def __init__(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
