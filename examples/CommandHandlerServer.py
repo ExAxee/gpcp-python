@@ -1,6 +1,6 @@
 from gpcp.server import Server
 from gpcp.utils.base_handler import BaseHandler
-from gpcp.utils.filters import command, unknownCommand
+from gpcp.utils.annotations import command, unknownCommand
 
 #define the class handler which will handle all requests
 #NOTE: you ALWAYS have to return something!!!!

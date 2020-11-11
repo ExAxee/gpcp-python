@@ -1,9 +1,9 @@
 import socket
 import json
 from typing import Union
+from gpcp.core import packet
 from gpcp.utils.base_types import getFromId
-from gpcp.utils import packet
-from gpcp.utils.Errors import AddressError, ShutdownError
+from gpcp.utils.errors import AddressError, ShutdownError
 
 import logging
 logger = logging.getLogger(__name__)
@@ -124,7 +124,7 @@ class Client:
         """
         logger.debug(f"commandRequest() called with commandIdentifier={commandIdentifier}, arguments={arguments}")
         data = packet.CommandData.encode(commandIdentifier, arguments)
-        result = self.request(data).decode(packet.ENCODING)
+        result = json.loads(self.request(data).decode(packet.ENCODING))
         logger.debug(f"commandRequest() received result={result}")
         return result
 

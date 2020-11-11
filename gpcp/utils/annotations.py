@@ -3,7 +3,7 @@ import re
 import keyword
 from typing import Callable
 from gpcp.utils.base_types import getIfBuiltIn, Bytes
-from gpcp.utils.Errors import AnnotationError
+from gpcp.utils.errors import AnnotationError
 
 import logging
 logger = logging.getLogger(__name__)

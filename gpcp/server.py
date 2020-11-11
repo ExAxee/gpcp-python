@@ -1,9 +1,9 @@
 import socket
 from typing import Union, Callable
-from gpcp.utils.base_handler import buildHandlerFromFunction
-from gpcp.utils import packet
-from gpcp.utils.Errors import AddressError, ConfigurationError, ShutdownError
-from gpcp.utils.connection import Connection
+from gpcp.core.base_handler import buildHandlerFromFunction
+from gpcp.core import packet
+from gpcp.core.connection import Connection
+from gpcp.utils.errors import AddressError, ConfigurationError, ShutdownError
 
 import logging
 logger = logging.getLogger(__name__)

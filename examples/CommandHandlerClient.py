@@ -1,6 +1,6 @@
 from gpcp.client import Client
 from gpcp.utils.base_handler import BaseHandler
-from gpcp.utils.filters import command, unknownCommand
+from gpcp.utils.annotations import command, unknownCommand
 
 #this is the function that will handle our data
 def handler(sock, data):

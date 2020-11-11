@@ -1,9 +1,9 @@
 import json
 from typing import Callable, Union
-from gpcp.utils import packet
-from gpcp.utils.filters import command, unknownCommand, FunctionType
-from gpcp.utils.base_types import toId, JsonObject
-from gpcp.utils.Errors import HandlerLoadingError
+from gpcp.core import packet
+from gpcp.utils.annotations import command, unknownCommand, FunctionType
+from gpcp.utils.base_types import toId, JsonObject, Bytes
+from gpcp.utils.errors import HandlerLoadingError, UnmetPreconditionError
 
 import logging
 logger = logging.getLogger(__name__)
@@ -99,8 +99,13 @@ class BaseHandler:
             logger.info(f"unknown command {commandIdentifier}")
             if self.unknownCommandFunction is None:
                 logger.warning(f"missing unknownCommandFunction when handling {commandIdentifier}: returning \"\"")
-                return b""
-            return self.unknownCommandFunction(commandIdentifier, arguments)
+                returnValue = b""
+            else:
+                returnValue = self.unknownCommandFunction(commandIdentifier, arguments)
+                if not isinstance(returnValue, bytes):
+                    raise UnmetPreconditionError(f"return value is not bytes: {returnValue}")
+            returnValueJson = json.dumps(Bytes.serialize(returnValue))
+            return returnValueJson
 
         # convert parameters from `bytes` to the types of `function` arguments
         convertedArguments = []
@@ -110,8 +115,9 @@ class BaseHandler:
 
         # convert the return value to `bytes` from the specified type
         returnValue = function(self, *convertedArguments)
-        logger.debug(f"return value for command {commandIdentifier}: {returnValue}")
-        return json.dumps(returnType.serialize(returnValue))
+        returnValueJson = json.dumps(returnType.serialize(returnValue))
+        logger.debug(f"return value for command {commandIdentifier}: {returnValue} -> {returnValueJson}")
+        return returnValueJson
 
     @command
     def requestCommands(self) -> JsonObject:
