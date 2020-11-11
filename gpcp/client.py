@@ -3,7 +3,7 @@ import json
 from typing import Union
 from gpcp.core import packet
 from gpcp.utils.base_types import getFromId
-from gpcp.utils.errors import AddressError, ShutdownError
+from gpcp.utils.errors import ConfigurationError
 
 import logging
 logger = logging.getLogger(__name__)
@@ -25,9 +25,9 @@ class Client:
         logger.info(f"connect() called with host={host}, port={port}")
 
         if not isinstance(host, str):
-            raise AddressError(f"invalid option '{host}' for host, must be string")
+            raise ConfigurationError(f"invalid option '{host}' for host, must be string")
         if not isinstance(port, int):
-            raise AddressError(f"invalid option '{port}' for port, must be integer")
+            raise ConfigurationError(f"invalid option '{port}' for port, must be integer")
 
         self.socket.connect((host, port))
         return self
@@ -48,7 +48,7 @@ class Client:
         elif mode == "w":
             self.socket.shutdown(socket.SHUT_WR)
         else:
-            raise ShutdownError(f"invalid option '{mode}' for mode, must be 'r' or 'w' or 'rw'")
+            raise ConfigurationError(f"invalid option '{mode}' for mode, must be 'r' or 'w' or 'rw'")
 
         self.socket.close()
 
@@ -117,7 +117,10 @@ class Client:
 
     def commandRequest(self, commandIdentifier: str, arguments: list) -> str:
         """
-        format a command request with given arguments, send it and return the response
+        Format a command request with given arguments, send it and return the response.
+        Remember to deserialize the response using one of the types in
+        `gpcp.utils.base_types` or one extending them, otherwise the response will not
+        make sense since it was serialized on the server's end.
 
         :param arguments: list of all arguments to send to the server
         :param commandIdentifier: the name of the command to call

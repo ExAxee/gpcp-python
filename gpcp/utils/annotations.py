@@ -87,6 +87,13 @@ def command(arg):
     return wrapper # the returned function when called adds the metadata to `func` and returns it
 
 def unknownCommand(func: Callable):
+    """
+    Marks the decorated function as the command to be called when
+    the command identifier does not match any other loaded commands.
+    Note that the return type should always be `bytes`, otherwise a
+    `gpcp.utils.errors.UnmetPreconditionError` will be raised.
+    """
+
     func.__gpcp_metadata__ = (FunctionType.unknown,)
     logger.debug(f"@unknownCommand(): assigned metadata to {func.__name__}: {func.__gpcp_metadata__}")
     return func

@@ -3,7 +3,7 @@ from typing import Union, Callable
 from gpcp.core.base_handler import buildHandlerFromFunction
 from gpcp.core import packet
 from gpcp.core.connection import Connection
-from gpcp.utils.errors import AddressError, ConfigurationError, ShutdownError
+from gpcp.utils.errors import ConfigurationError
 
 import logging
 logger = logging.getLogger(__name__)
@@ -131,7 +131,7 @@ class Server:
                 break
 
         if not deleted:
-            raise ShutdownError(
+            raise ConfigurationError(
                 f"connection {connection.socket.getsockname()} is not a connection of this server"
             )
 
