@@ -146,7 +146,6 @@ class Server:
         logger.info(f"stopServer() called")
 
         try:
-            self.socket.shutdown(socket.SHUT_RDWR)
             self.socket.close()
         except OSError: #the server is not started so there isn't something to stop
             logger.warning("unable to correctly stop server, probably not started", exc_info=True)
