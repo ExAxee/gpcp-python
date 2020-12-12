@@ -1,7 +1,5 @@
 class Connection():
 
-    def __init__(self, connection, address, handler):
-        self.socket = connection
-        self.host = address[0]
-        self.port = address[1]
-        self.handler = handler
+    def __init__(self, endpoint, thread):
+        self.endpoint = endpoint
+        self.thread = thread

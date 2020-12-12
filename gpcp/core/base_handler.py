@@ -1,9 +1,9 @@
-import json
-from typing import Callable, Union
-from gpcp.core import packet
+from gpcp.utils.errors import HandlerLoadingError, UnmetPreconditionError
 from gpcp.utils.annotations import command, unknownCommand, FunctionType
 from gpcp.utils.base_types import toId, JsonObject, Bytes
-from gpcp.utils.errors import HandlerLoadingError, UnmetPreconditionError
+from typing import Callable, Union
+from gpcp.core import packet
+import json
 
 import logging
 logger = logging.getLogger(__name__)
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class BaseHandler:
 
     # to be overridden
-    def onConnected(self, server, connection, address):
+    def onConnected(self, server, endpoint, address):
         """
         To be overridden, can be used to prepare the handler.
 
@@ -21,7 +21,7 @@ class BaseHandler:
         """
         logger.debug(f"base onConnected called with address={address}")
 
-    def onDisonnected(self, server, connection, address) -> Union[bytes, None]:
+    def onDisonnected(self, server, endpoint, address) -> Union[bytes, None]:
         """
         To be overridden, can be used to send a last message to the client
         and to clean up the handler.
@@ -90,6 +90,10 @@ class BaseHandler:
         """
 
         logger.debug(f"handleData called on {self.__class__.__name__} with data={data}")
+        # checking if handler is locked
+        if self._LOCK is True:
+            return "ENDPOINT NOT STARTED TO THIS SCOPE"
+
         commandIdentifier, arguments = packet.CommandData.decode(data)
         logger.debug(f"commandIdentifier={commandIdentifier} and arguments={arguments}")
 

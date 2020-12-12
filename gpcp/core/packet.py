@@ -1,6 +1,6 @@
 """packet module containing functions to handle packets"""
-import json
 from typing import Union, Tuple
+import json
 
 HEADER_LENGTH = 4
 HEADER_BYTEORDER = "big"

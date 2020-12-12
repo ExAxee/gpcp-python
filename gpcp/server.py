@@ -1,9 +1,12 @@
-import socket
-from typing import Union, Callable
 from gpcp.core.base_handler import buildHandlerFromFunction
-from gpcp.core import packet
-from gpcp.core.connection import Connection
+from gpcp.utils.handlerValidator import validateHandler
 from gpcp.utils.errors import ConfigurationError
+from gpcp.core.connection import Connection
+from gpcp.core.endpoint import EndPoint
+from typing import Union, Callable
+from gpcp.core import packet
+import threading
+import socket
 
 import logging
 logger = logging.getLogger(__name__)
@@ -22,41 +25,7 @@ class Server:
 
         logger.debug(f"setHandler() called with handler={handler}")
 
-        #check for handleData core function
-        if not hasattr(handler, "handleData"):
-            # suppose this is a function
-            if not callable(handler):
-                raise ConfigurationError(
-                    f"{handler.__name__} is neither a handler class nor a function"
-                )
-            self.handler = buildHandlerFromFunction(handler)
-            return
-        elif hasattr(handler, "handleData"):
-            # this has to be a handler class
-            if not callable(handler.handleData):
-                raise ConfigurationError(
-                    f"invalid core method in '{handler.__name__}' for handler class: 'handleData' is not callable"
-                )
-        else:
-            raise ConfigurationError(
-                f"missing core method in '{handler.__name__}' for handler class, missing function 'handleData'"
-            )
-
-        # check for loadHandlers core function
-        if hasattr(handler, "loadHandlers"):
-
-            # start the handlers loading
-            if callable(handler.loadHandlers):
-                self.handler = handler
-                self.handler.loadHandlers()
-            else:
-                raise ConfigurationError(
-                    f"invalid core method in '{handler.__name__}' for handler class, 'loadHandlers' is not callable"
-                )
-        else:
-            raise ConfigurationError(
-                f"missing core method in '{handler.__name__}' for handler class, missing function 'loadHandlers'"
-            )
+        self.handler = validateHandler(handler)
 
     def startServer(self, host: str, port: int, buffer: int = 5):
         """
@@ -84,30 +53,34 @@ class Server:
 
         while True:
             try:
-                connection, address = self.socket.accept()
+                connectionSocket, address = self.socket.accept()
                 logger.info(f"new connection: {address}")
-                connection.setblocking(False)
+                connectionSocket.setblocking(False)
 
                 # Create a new handler using handler as a factory.
                 # The handler can store whatever information it wants relatively to a
                 # connection, so it can't be used statically, but it must be instantiated
                 handler = self.handler()
-                handler.onConnected(self, connection, address)
-                self.connections.append(Connection(connection, address, handler))
+                #initializing the endpoint
+                endpoint = EndPoint(connectionSocket, handler, self, self._gpcpRole)
+                endpoint.handler.onConnected(self, endpoint, address)
+
+                #setting up the thread
+                thread = threading.Thread(target=endpoint.mainLoop)
+                thread.setName(f"{address[0]}:{address[1]}")
+
+                #initializing the connection object and starting the thread
+                connection = Connection(endpoint, thread)
+                connection.thread.start()
+
+                self.connections.append(connection)
             except BlockingIOError:
                 pass # there is no connection yet
 
-            for singleConnection in self.connections:
-                try:
-                    data = packet.receiveAll(singleConnection.socket)
-                    if data is None: # connection was closed
-                        logger.info(f"received None data from {address}, closing connection: ")
-                        self.closeConnection(singleConnection.host, singleConnection.port)
-                    else: # send the handler response to the client
-                        logger.debug(f"received data from {address}")
-                        packet.sendAll(singleConnection.socket, singleConnection.handler.handleData(data))
-                except BlockingIOError:
-                    continue
+            for i, connection in enumerate(self.connections):
+                if not connection.thread.is_alive():
+                    logger.debug(f"connection thread {connection.thread.name} is dead, deleting")
+                    del self.connections[i]
 
     def closeConnection(self, host, port):
         """
@@ -121,8 +94,8 @@ class Server:
 
         deleted = False
         for i, connection in enumerate(self.connections):
-            if connection.host == host and connection.port == port:
-                data = connection.handler.onDisonnected(self, connection.socket, (connection.host, connection.port))
+            if connection.endpoint.localAddress == (host, port):
+                data = connection.endpoint.handler.onDisonnected(self, connection.endpoint.socket, connection.endpoint.remoteAddress)
                 if data is not None:
                     packet.sendAll(connection.socket, data)
 
@@ -132,11 +105,11 @@ class Server:
 
         if not deleted:
             raise ConfigurationError(
-                f"connection {connection.socket.getsockname()} is not a connection of this server"
+                f"connection {connection.endpoint.socket.getsockname()} is not a connection of this server"
             )
 
-        connection.socket.shutdown(socket.SHUT_RDWR)
-        connection.socket.close()
+        connection.endpoint.socket.shutdown(socket.SHUT_RDWR)
+        connection.endpoint.socket.close()
 
     def stopServer(self):
         """
@@ -147,17 +120,30 @@ class Server:
 
         try:
             self.socket.close()
+        except AttributeError:
+            #does not need exception info as the error is cause by the absence of the 'socket' var
+            logger.warning("unable to correctly stop server, socket not initialized")
+            pass
         except OSError: #the server is not started so there isn't something to stop
             logger.warning("unable to correctly stop server, probably not started", exc_info=True)
             pass
 
-    def __init__(self, handler: Union[type, Callable] = None, reuseAddress: bool = False):
+    def __init__(self, role = "R", handler: Union[type, Callable] = None, reuseAddress: bool = False):
         """
         Initialize server
 
         :param handler: a class or a function to call on requests
         :param reuseAddress: set if overwrite server on the same port with the current one
         """
+
+        if role == "R":
+            self._gpcpRole = role
+        elif role == "A":
+            self._gpcpRole = role
+        elif role == "AR" or role == "RA":
+            self._gpcpRole = role
+        else:
+            raise ConfigurationError(f"invalid server role for {self.__class__.__name__}: options are ['A', 'R', 'RA' | 'AR']")
 
         logger.debug(f"__init__() called with handler={handler}, reuseAddress={reuseAddress}")
 
