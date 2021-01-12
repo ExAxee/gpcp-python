@@ -1,7 +1,9 @@
 from gpcp.utils.handlerValidator import validateHandler
 from gpcp.utils.errors import ConfigurationError
 from gpcp.utils.base_types import getFromId
+from gpcp.core.dispatcher import Dispatcher
 from gpcp.core.endpoint import EndPoint
+from threading import Event, Thread
 from gpcp.core import packet
 from typing import Union
 import socket
@@ -42,8 +44,8 @@ class Client(EndPoint):
 
         # initial data transfer
         packet.sendAll(self.socket, config)
-        remoteConfig = json.loads(packet.receiveAll(self.socket))
         logger.debug(f"remote config sent to {self.remoteAddress}: {config}")
+        remoteConfig = json.loads(packet.receiveAll(self.socket)[0])
         logger.debug(f"remote config recieved on {self.localAddress}: {remoteConfig}")
 
         # checking config validity
@@ -65,6 +67,17 @@ class Client(EndPoint):
         else:
             self.handler._LOCK = False
 
+        #dispatcher thread setup
+        self.dispatcher = Dispatcher(self.socket, Event(), Event())
+        self._dispatcher_thread = Thread(target=self.dispatcher.startReceiver)
+        self._dispatcher_thread.setName(f"{self.localAddress} dispatcher")
+        self._dispatcher_thread.start()
+
+        #setting up the thread
+        self._mainLoopThread = Thread(target=self.mainLoop)
+        self._mainLoopThread.setName(f"connection ({self.socket.getpeername()[0]}:{self.socket.getpeername()[1]})")
+        self._mainLoopThread.start()
+
         return self
 
     def __init__(self, role = "A", handler = None):
@@ -84,6 +97,7 @@ class Client(EndPoint):
         else:
             self.handler = None
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._stop = False
 
     def __enter__(self):
         return self

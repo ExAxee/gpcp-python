@@ -92,7 +92,7 @@ class BaseHandler:
         logger.debug(f"handleData called on {self.__class__.__name__} with data={data}")
         # checking if handler is locked
         if self._LOCK is True:
-            return "ENDPOINT NOT STARTED TO THIS SCOPE"
+            return json.dumps("ENDPOINT NOT STARTED TO THIS SCOPE")
 
         commandIdentifier, arguments = packet.CommandData.decode(data)
         logger.debug(f"commandIdentifier={commandIdentifier} and arguments={arguments}")
@@ -119,8 +119,9 @@ class BaseHandler:
 
         # convert the return value to `bytes` from the specified type
         returnValue = function(self, *convertedArguments)
+        logger.debug(f"return value for command {commandIdentifier}: {returnValue}")
         returnValueJson = json.dumps(returnType.serialize(returnValue))
-        logger.debug(f"return value for command {commandIdentifier}: {returnValue} -> {returnValueJson}")
+        logger.debug(f"return value json for command {commandIdentifier}: {returnValueJson}")
         return returnValueJson
 
     @command

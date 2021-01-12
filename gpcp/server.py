@@ -55,7 +55,6 @@ class Server:
             try:
                 connectionSocket, address = self.socket.accept()
                 logger.info(f"new connection: {address}")
-                connectionSocket.setblocking(False)
 
                 # Create a new handler using handler as a factory.
                 # The handler can store whatever information it wants relatively to a
@@ -63,16 +62,16 @@ class Server:
                 handler = self.handler()
                 #initializing the endpoint
                 endpoint = EndPoint(connectionSocket, handler, self, self._gpcpRole)
-                endpoint.handler.onConnected(self, endpoint, address)
 
                 #setting up the thread
                 thread = threading.Thread(target=endpoint.mainLoop)
-                thread.setName(f"{address[0]}:{address[1]}")
+                thread.setName(f"connection ({address[0]}:{address[1]})")
 
                 #initializing the connection object and starting the thread
                 connection = Connection(endpoint, thread)
                 connection.thread.start()
 
+                endpoint.handler.onConnected(self, endpoint, address)
                 self.connections.append(connection)
             except BlockingIOError:
                 pass # there is no connection yet

@@ -1,5 +1,7 @@
 from gpcp.utils.errors import ConfigurationError
 from gpcp.utils.base_types import getFromId
+from gpcp.core.dispatcher import Dispatcher
+from threading import Event, Thread
 from gpcp.core import packet
 from typing import Union
 import logging
@@ -11,6 +13,7 @@ logger = logging.getLogger(__name__)
 class EndPoint():
 
     def __init__(self, socket, handler, server, role):
+        self._stop = False
         self.socket  = socket
         self.handler = handler
         self.server  = server
@@ -24,8 +27,8 @@ class EndPoint():
 
         # initial data transfer
         packet.sendAll(self.socket, config)
-        remoteConfig = json.loads(packet.receiveAll(self.socket))
         logger.debug(f"remote config sent to {self.remoteAddress}: {config}")
+        remoteConfig = json.loads(packet.receiveAll(self.socket)[0])
         logger.debug(f"remote config recieved on {self.localAddress}: {remoteConfig}")
 
         # checking config validity
@@ -48,43 +51,46 @@ class EndPoint():
             self.handler._LOCK = False
 
     def mainLoop(self):
-        while True:
-            try:
-                data = packet.receiveAll(self.socket)
-                if data is None: # connection was closed
-                    logger.info(f"received None data from {self.remoteAddress}, closing connection")
-                    # self.socket._closed is True only if self.socket.close() is called
-                    if self.socket._closed == False:
-                        self.closeConnection()
-                    break
-                else: # send the handler response to the client
-                    logger.debug(f"received data from {self.remoteAddress}")
-                    response = self.handler.handleData(data)
-                    if response == "ENDPOINT NOT STARTED TO THIS SCOPE":
-                        logger.warning(f"unexpected request with data={data} while handler locked from {self.remoteAddress}")
-                    packet.sendAll(self.socket, response)
-            except BlockingIOError:
-                pass
+        #dispatcher thread setup
+        self.dispatcher = Dispatcher(self.socket, Event(), Event())
+        self._dispatcher_thread = Thread(target=self.dispatcher.startReceiver)
+        self._dispatcher_thread.setName(f"{self.localAddress} dispatcher")
+        self._dispatcher_thread.start()
 
-    def closeConnection(self, mode: str = "rw"):
+        while not self._stop:
+            #wait for a request to come
+            data = self.dispatcher.request.waitForUpdate()
+
+            if data is None: #connection was closed
+                logger.info(f"received None data from {self.remoteAddress}, closing connection")
+                # self.socket._closed is True only if self.socket.close() is called
+                if self.socket._closed == False:
+                    self.closeConnection()
+                break
+            else: # send the handler response to the client
+                logger.debug(f"received data from {self.remoteAddress}")
+                response = self.handler.handleData(data)
+                if response == "ENDPOINT NOT STARTED TO THIS SCOPE":
+                    logger.warning(f"unexpected request with data={data} while handler locked from {self.remoteAddress}")
+                packet.sendAll(self.socket, response)
+
+    def closeConnection(self):
         """
         Closes the connection to the other end point
 
         :param mode: r = read, w = write, rw = read and write (default: 'rw')
         """
 
-        logger.info(f"closeConnection() called with mode={mode}")
-
-        if mode == "rw":
-            self.socket.shutdown(socket.SHUT_RDWR)
-        elif mode == "r":
-            self.socket.shutdown(socket.SHUT_RD)
-        elif mode == "w":
-            self.socket.shutdown(socket.SHUT_WR)
-        else:
-            raise ConfigurationError(f"invalid option '{mode}' for mode, must be 'r' or 'w' or 'rw'")
-
+        logger.info(f"closeConnection() called")
+        #stop the dispatcher thread and wait for it to return
+        try:
+            self.dispatcher.stopReceiver()
+            self._dispatcher_thread.join()
+        except AttributeError:
+            logger.warn(f"sopping dispatcher failed, probably not started")
+        #close the socket
         self.socket.close()
+        self._stop = True
 
     def loadInterface(self, namespace: type, rawInterface: list = None):
         """
@@ -113,6 +119,7 @@ class EndPoint():
         logger.debug(f"loadInterface() called with namespace={namespace}, rawInterface={rawInterface}")
 
         if rawInterface is None:
+            #request the raw interface if not provided
             rawInterface = self.commandRequest("requestCommands", [])
 
         if isinstance(rawInterface, (bytes, str)):
@@ -120,6 +127,7 @@ class EndPoint():
 
         for command in rawInterface:
             def generateWrapperFunction():
+                #declaring handler method
                 def wrapper(*args):
                     arguments = []
                     for i, arg in enumerate(args):
@@ -130,6 +138,7 @@ class EndPoint():
 
             wrapper = generateWrapperFunction()
 
+            #setting up handler method data
             wrapper.commandIdentifier = command["name"]
             wrapper.argumentTypes = [getFromId(arg["type"]) for arg in command["arguments"]]
             wrapper.returnType = getFromId(command["return_type"])
@@ -137,6 +146,7 @@ class EndPoint():
 
             logger.debug(f"loaded command with commandIdentifier={wrapper.commandIdentifier}, description=\"{wrapper.__doc__}\""
                          + f", argumentTypes={wrapper.argumentTypes}, returnType={wrapper.returnType}")
+            #assigning the method to the namespace class
             setattr(namespace, command["name"], wrapper)
 
     def raw_request(self, data: Union[bytes, str]):
@@ -146,8 +156,7 @@ class EndPoint():
         :param data: the formatted request to send
         """
         logger.debug(f"raw_request() called with data={data}")
-        packet.sendAll(self.socket, data)
-        return packet.receiveAll(self.socket)
+        packet.sendAll(self.socket, data, isRequest=True)
 
     def commandRequest(self, commandIdentifier: str, arguments: list) -> str:
         """
@@ -160,7 +169,13 @@ class EndPoint():
         :param commandIdentifier: the name of the command to call
         """
         logger.debug(f"commandRequest() called with commandIdentifier={commandIdentifier}, arguments={arguments}")
+        #format the command into a valid request
         data = packet.CommandData.encode(commandIdentifier, arguments)
-        result = json.loads(self.raw_request(data).decode(packet.ENCODING))
+        #send the request
+        #self.raw_request(data)
+        packet.sendAll(self.socket, data, isRequest=True)
+        #wait for the response trigger to activate and load the response
+        response = self.dispatcher.response.waitForUpdate()
+        result = json.loads(response.decode(packet.ENCODING))
         logger.debug(f"commandRequest() received result={result}")
         return result

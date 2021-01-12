@@ -3,7 +3,7 @@ import re
 import keyword
 from typing import Callable
 from gpcp.utils.base_types import getIfBuiltIn, Bytes
-from gpcp.utils.errors import AnnotationError
+from gpcp.utils.errors import AnnotationError, ConfigurationError
 
 import logging
 logger = logging.getLogger(__name__)
@@ -46,7 +46,11 @@ def command(arg):
         argumentTypes = []
 
         for argName in func.__code__.co_varnames[1:func.__code__.co_argcount]:
-            argumentType = typedArguments.get(argName, Bytes)
+            argumentType = typedArguments.get(argName, None)
+
+            if argumentType is None:
+                raise ConfigurationError(f"missing argument type for '{argName}' in handler function '{func.__name__}'")
+
             argumentTypes.append((getIfBuiltIn(argumentType), argName))
 
         return argumentTypes
@@ -57,7 +61,11 @@ def command(arg):
         defaulting to `Bytes`. Built-in types are supported.
         """
 
-        returnType = func.__annotations__.get("return", Bytes)
+        returnType = func.__annotations__.get("return", None)
+
+        if returnType is None:
+            raise ConfigurationError(f"missing return type for handler function '{func.__name__}'")
+
         return getIfBuiltIn(returnType)
 
     def getDescription(func: Callable):

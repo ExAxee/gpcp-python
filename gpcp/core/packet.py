@@ -1,6 +1,9 @@
 """packet module containing functions to handle packets"""
 from typing import Union, Tuple
+import logging
 import json
+
+logger = logging.getLogger(__name__)
 
 HEADER_LENGTH = 4
 HEADER_BYTEORDER = "big"
@@ -30,9 +33,29 @@ class CommandData:
         separatorIndex = data.find("[")
         commandIdentifier = data[:separatorIndex]
         arguments = json.loads(data[separatorIndex:])
+        logger.debug(f"decoded command from '{data}' -> args: '{arguments}'; cmd: '{commandIdentifier}'")
         return (commandIdentifier, arguments)
 
-def sendAll(connection, data: Union[bytes, str]):
+class Header:
+    def encode(length: int, isRequest: bool) -> bytes:
+        if length > 0x7fffffff: #0x7fffffff == 01111111 11111111 11111111 11111111
+            raise ValueError("length too big to handle")
+
+        byteList = [isRequest << 7 + ((length >> 24) & 0x7f), (length >> 16) & 0xff, (length >> 8) & 0xff, (length) & 0xff]
+        logger.debug(f"header encoded from length {length}, isRequest {isRequest} to: {bytes(byteList)}")
+        return byteList
+
+    def decode(head) -> int:
+        isRequest = bool(head[0] & 0x80)
+
+        byteList = [head[0] & 0x7f]
+        for i in range(1, HEADER_LENGTH):
+            byteList.append(head[i] & 0xff)
+
+        logger.debug(f"header decoded from head {head} to: isRequest {isRequest}; bytes {byteList}")
+        return (int.from_bytes(bytes(byteList), HEADER_BYTEORDER), isRequest)
+
+def sendAll(connection, data: Union[bytes, str], isRequest:bool = False):
     """
     sends all data, this is not the default socket.sendall() function
 
@@ -43,8 +66,9 @@ def sendAll(connection, data: Union[bytes, str]):
     if isinstance(data, str):
         data = data.encode(ENCODING)
 
-    data = len(data).to_bytes(HEADER_LENGTH, byteorder=HEADER_BYTEORDER) + data
+    data = bytes(Header.encode(len(data), isRequest)) + data
     while data:
+        logger.debug(f"sending data fragment {data} to {connection.getpeername()}")
         sent = connection.send(data)
         data = data[sent:]
 
@@ -58,11 +82,14 @@ def receiveAll(connection) -> Union[str, None]:
     head = connection.recv(HEADER_LENGTH) #read the header from a buffered request
 
     if head:
-        byteCount = int.from_bytes(head, byteorder=HEADER_BYTEORDER)
+        byteCount, isRequest = Header.decode(head)
         data = connection.recv(byteCount) #read the actual message of len head
+        logger.debug(f"receiving data fragment {data} from {connection.getpeername()}")
 
         while len(data) < byteCount:
-            data += connection.recv(byteCount - len(data))
+            fragment = connection.recv(byteCount - len(data))
+            logger.debug(f"receiving data fragment {fragment} from {connection.getpeername()}")
+            data += fragment
 
-        return data
-    return None
+        return (data, isRequest)
+    return (None, None)
