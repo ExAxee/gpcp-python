@@ -37,6 +37,8 @@ class CommandData:
         return (commandIdentifier, arguments)
 
 class Header:
+
+    @staticmethod
     def encode(length: int, isRequest: bool) -> bytes:
         if length > 0x7fffffff: #0x7fffffff == 01111111 11111111 11111111 11111111
             raise ValueError("length too big to handle")
@@ -45,6 +47,7 @@ class Header:
         logger.debug(f"header encoded from length {length}, isRequest {isRequest} to: {bytes(byteList)}")
         return byteList
 
+    @staticmethod
     def decode(head) -> int:
         isRequest = bool(head[0] & 0x80)
 

@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 class EndPoint():
 
     def __init__(self, socket, handler, server, role):
-        self._stop = False
         self.socket  = socket
         self.handler = handler
         self.server  = server
@@ -57,16 +56,15 @@ class EndPoint():
         self._dispatcher_thread.setName(f"{self.localAddress} dispatcher")
         self._dispatcher_thread.start()
 
-        while not self._stop:
+        while True:
             #wait for a request to come
             data = self.dispatcher.request.waitForUpdate()
 
             if data is None: #connection was closed
                 logger.info(f"received None data from {self.remoteAddress}, closing connection")
-                # self.socket._closed is True only if self.socket.close() is called
-                if self.socket._closed == False:
-                    self.closeConnection()
+                self.closeConnection()
                 break
+
             else: # send the handler response to the client
                 logger.debug(f"received data from {self.remoteAddress}")
                 response = self.handler.handleData(data)
@@ -89,8 +87,9 @@ class EndPoint():
         except AttributeError:
             logger.warn(f"sopping dispatcher failed, probably not started")
         #close the socket
-        self.socket.close()
-        self._stop = True
+        #self.socket._closed is True only if self.socket.close() is called
+        if self.socket._closed == False:
+            self.socket.close()
 
     def loadInterface(self, namespace: type, rawInterface: list = None):
         """

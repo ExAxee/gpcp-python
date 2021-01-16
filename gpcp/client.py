@@ -67,12 +67,6 @@ class Client(EndPoint):
         else:
             self.handler._LOCK = False
 
-        #dispatcher thread setup
-        self.dispatcher = Dispatcher(self.socket, Event(), Event())
-        self._dispatcher_thread = Thread(target=self.dispatcher.startReceiver)
-        self._dispatcher_thread.setName(f"{self.localAddress} dispatcher")
-        self._dispatcher_thread.start()
-
         #setting up the thread
         self._mainLoopThread = Thread(target=self.mainLoop)
         self._mainLoopThread.setName(f"connection ({self.socket.getpeername()[0]}:{self.socket.getpeername()[1]})")

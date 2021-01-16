@@ -63,7 +63,7 @@ class Server:
                 #initializing the endpoint
                 endpoint = EndPoint(connectionSocket, handler, self, self._gpcpRole)
 
-                #setting up the thread
+                #setting up the endpoint thread
                 thread = threading.Thread(target=endpoint.mainLoop)
                 thread.setName(f"connection ({address[0]}:{address[1]})")
 
