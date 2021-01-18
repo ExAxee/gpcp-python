@@ -28,11 +28,12 @@ class Server:
 
     def startServer(self, host: str, port: int, buffer: int = 5):
         """
-        start the server and open it for connectedEndpoints
+        start the server and open it for connections
 
         :param host: address or ip to bind the server to
         :param port: port where bind the server
-        :param buffer: how many connectedEndpoints can be buffered at the same time
+        :param buffer: how many connections can be buffered at the same time
+        :returns: self
         """
 
         logger.info(f"startServer() called with host={host}, port={port}, buffer={buffer}")
@@ -43,8 +44,6 @@ class Server:
             raise ConfigurationError(f"invalid option '{port}' for port, must be integer")
         if not isinstance(buffer, int):
             raise ConfigurationError(f"invalid option '{buffer}' for buffer, must be integer")
-        if self.handler is None:
-            raise ConfigurationError(f"'startServer' can be used only after a handler is assigned")
 
         # start the server
         self.socket.bind((host, port))
@@ -58,10 +57,10 @@ class Server:
                 # Create a new handler using handler as a factory.
                 # The handler can store whatever information it wants relatively to a
                 # connection, so it can't be used statically, but it must be instantiated
-                handlerIntance = self.handler()
+                handlerInstance = None if self.handler is None else self.handler()
 
                 # initializing the endpoint object and starting the thread
-                endpoint = EndPoint(connectionSocket, self.role, handlerIntance)
+                endpoint = EndPoint(connectionSocket, self.role, handlerInstance)
                 self.connectedEndpoints.append(endpoint)
 
                 # notifying the handler of the new connection
@@ -73,6 +72,8 @@ class Server:
                 if not endpoint.mainLoopThread.is_alive():
                     logger.debug(f"connected endpoint thread {endpoint.mainLoopThread.name} is dead, deleting")
                     del self.connectedEndpoints[i]
+
+        return self
 
     def closeConnection(self, host, port):
         """
