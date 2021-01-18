@@ -153,6 +153,3 @@ class Server:
         self.stopServer()
         if exc_type is not None and exc_value is not None and exc_tb is not None:
             print(exc_type, "\n", exc_value, "\n", exc_tb)
-
-    def __del__(self):
-        self.stopServer()
