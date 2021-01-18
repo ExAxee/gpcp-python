@@ -2,7 +2,7 @@ from threading import Event, Thread
 from typing import Union
 import logging
 import json
-from gpcp.utils.handlerValidator import validateHandler
+from gpcp.utils.handlerValidator import validateNullableHandler
 from gpcp.utils.base_types import getFromId
 from gpcp.utils.errors import ConfigurationError
 from gpcp.core.dispatcher import Dispatcher
@@ -54,6 +54,8 @@ class EndPoint():
             else:
                 self.handler._LOCK = False
 
+        self.startMainLoopThread()
+
     def mainLoop(self):
         #dispatcher thread setup
         self.dispatcher = Dispatcher(self.socket)
@@ -79,6 +81,11 @@ class EndPoint():
                 if response == "ENDPOINT NOT STARTED TO THIS SCOPE":
                     logger.warning(f"unexpected request with data={data} while handler locked from {self.remoteAddress}")
                 packet.sendAll(self.socket, response)
+
+    def startMainLoopThread(self):
+        self.thread = Thread(target=self.mainLoop)
+        self.thread.setName(f"connection ({self.remoteAddress[0]}:{self.remoteAddress[1]})")
+        self.thread.start()
 
     def closeConnection(self):
         """

@@ -1,7 +1,6 @@
 from gpcp.core.base_handler import buildHandlerFromFunction
 from gpcp.utils.handlerValidator import validateHandler, validateNullableHandler
 from gpcp.utils.errors import ConfigurationError
-from gpcp.core.connection import Connection
 from gpcp.core.endpoint import EndPoint
 from typing import Union, Callable
 from gpcp.core import packet
@@ -29,11 +28,11 @@ class Server:
 
     def startServer(self, host: str, port: int, buffer: int = 5):
         """
-        start the server and open it for connections
+        start the server and open it for connectedEndpoints
 
         :param host: address or ip to bind the server to
         :param port: port where bind the server
-        :param buffer: how many connections can be buffered at the same time
+        :param buffer: how many connectedEndpoints can be buffered at the same time
         """
 
         logger.info(f"startServer() called with host={host}, port={port}, buffer={buffer}")
@@ -60,52 +59,45 @@ class Server:
                 # The handler can store whatever information it wants relatively to a
                 # connection, so it can't be used statically, but it must be instantiated
                 handler = self.handler()
-                #initializing the endpoint
-                endpoint = EndPoint(connectionSocket, self._gpcpRole, handler)
 
-                #setting up the endpoint thread
-                thread = threading.Thread(target=endpoint.mainLoop)
-                thread.setName(f"connection ({address[0]}:{address[1]})")
+                # initializing the endpoint object and starting the thread
+                endpoint = EndPoint(connectionSocket, self.role, handler)
+                endpoint.startMainLoopThread()
+                self.connectedEndpoints.append(endpoint)
 
-                #initializing the connection object and starting the thread
-                connection = Connection(endpoint, thread)
-                connection.thread.start()
-
+                # notifying the handler of the new connection
                 endpoint.handler.onConnected(self, endpoint, address)
-                self.connections.append(connection)
             except BlockingIOError:
                 pass # there is no connection yet
 
-            for i, connection in enumerate(self.connections):
-                if not connection.thread.is_alive():
-                    logger.debug(f"connection thread {connection.thread.name} is dead, deleting")
-                    del self.connections[i]
+            for i, endpoint in enumerate(self.connectedEndpoints):
+                if not endpoint.thread.is_alive():
+                    logger.debug(f"connected endpoint thread {endpoint.thread.name} is dead, deleting")
+                    del self.connectedEndpoints[i]
 
     def closeConnection(self, host, port):
         """
         Closes a connection from a client
 
-        :param ip: ip address of connection to close
+        :param host: ip address of connection to close
         :param port: port of connection to close
         """
 
         logger.info(f"closeConnection() called with host={host}, port={port}")
 
         deleted = False
-        for i, connection in enumerate(self.connections):
-            if connection.endpoint.localAddress == (host, port):
-                data = connection.endpoint.handler.onDisonnected(self, connection.endpoint.socket, connection.endpoint.remoteAddress)
+        for i, endpoint in enumerate(self.connectedEndpoints):
+            if endpoint.endpoint.localAddress == (host, port):
+                data = endpoint.endpoint.handler.onDisonnected(self, endpoint.endpoint.socket, endpoint.endpoint.remoteAddress)
                 if data is not None:
-                    packet.sendAll(connection.socket, data)
+                    packet.sendAll(endpoint.socket, data)
 
-                del self.connections[i]
+                del self.connectedEndpoints[i]
                 deleted = True
                 break
 
         if not deleted:
-            raise ConfigurationError(
-                f"connection {connection.endpoint.socket.getsockname()} is not a connection of this server"
-            )
+            raise ConfigurationError(f"{host}:{port} is not a connected endpoint of this server")
 
         connection.endpoint.socket.shutdown(socket.SHUT_RDWR)
         connection.endpoint.socket.close()
@@ -120,10 +112,11 @@ class Server:
         try:
             self.socket.close()
         except AttributeError:
-            #does not need exception info as the error is cause by the absence of the 'socket' var
+            # does not need exception info as the error is cause by the absence of the 'socket' var
             logger.warning("unable to correctly stop server, socket not initialized")
             pass
-        except OSError: #the server is not started so there isn't something to stop
+        except OSError:
+            # the server is not started so there isn't something to stop
             logger.warning("unable to correctly stop server, probably not started", exc_info=True)
             pass
 
@@ -143,7 +136,7 @@ class Server:
 
         self.handler = validateNullableHandler(handler)
 
-        self.connections = []
+        self.connectedEndpoints = []
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.setblocking(False)
 

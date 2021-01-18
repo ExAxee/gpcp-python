@@ -32,14 +32,10 @@ class Client(EndPoint):
         if not isinstance(port, int):
             raise ConfigurationError(f"invalid option '{port}' for port, must be integer")
 
+        # initializing the (super) endpoint and starting the thread
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((host, port))
         super().__init__(sock, role, handler)
-
-        #setting up the thread
-        self._mainLoopThread = Thread(target=self.mainLoop)
-        self._mainLoopThread.setName(f"connection ({self.socket.getpeername()[0]}:{self.socket.getpeername()[1]})")
-        self._mainLoopThread.start()
 
     def __enter__(self):
         return self
