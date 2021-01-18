@@ -1,27 +1,38 @@
-from gpcp.utils.errors import ConfigurationError
-from gpcp.utils.base_types import getFromId
-from gpcp.core.dispatcher import Dispatcher
 from threading import Event, Thread
-from gpcp.core import packet
 from typing import Union
 import logging
-import socket
 import json
+from gpcp.utils.base_types import getFromId
+from gpcp.utils.errors import ConfigurationError
+from gpcp.core.dispatcher import Dispatcher
+from gpcp.core import packet
 
 logger = logging.getLogger(__name__)
 
 class EndPoint():
 
-    def __init__(self, socket, handler, server, role):
-        self.socket  = socket
-        self.handler = handler
-        self.server  = server
-        self.localAddress  = self.socket.getsockname()
+    def __init__(self, server, socket, validatedRole: str, handlerInstance):
+        """
+        initializes this endpoint, starts its main loop on another thread and
+        then notifies the handler with onConnected()
+
+        :param server: the server this endpoint belongs to, can be None if this
+                       endpoint belongs to a client
+        :param socket: the socket for the connection
+        :param validatedRole:str: the role of this endpoint, already validated
+        :param handlerInstance: the handler instance
+        """
+        self._stop = False
+        self._finishedInitializing = False
+        self.socket = socket
+        self.localAddress = self.socket.getsockname()
         self.remoteAddress = self.socket.getpeername()
+        self.role = validatedRole
+        self.handler = handlerInstance
 
         # setting up initial data to send
         config = json.dumps({
-            "role":role
+            "role": self.role
         })
 
         # initial data transfer
@@ -36,33 +47,41 @@ class EndPoint():
             self.socket.close()
 
         # checking if the endpoints can actually talk to each other
-        if remoteConfig["role"] == "R" and role == "R":
+        if remoteConfig["role"] == "R" and self.role == "R":
             logger.warning(f"both local {self.localAddress} and remote {self.remoteAddress} endpoints can only respond, closing")
             self.socket.close()
-        elif remoteConfig["role"] == "A" and role == "A":
+        elif remoteConfig["role"] == "A" and self.role == "A":
             logger.warning(f"both local {self.localAddress} and remote {self.remoteAddress} endpoints can only request, closing")
             self.socket.close()
-        
+
         # locking the handler if needed
-        if role == "A":
-            self.handler._LOCK = True
-        else:
-            self.handler._LOCK = False
+        if self.handler is not None:
+            if self.role == "A":
+                self.handler._LOCK = True
+            else:
+                self.handler._LOCK = False
+
+        self.startMainLoopThread()
+        while not self._finishedInitializing:
+            pass # wait for the main loop thread to start
+        if self.handler is not None:
+            self.handler.onConnected(server, self, self.remoteAddress)
 
     def mainLoop(self):
         #dispatcher thread setup
-        self.dispatcher = Dispatcher(self.socket, Event(), Event())
-        self._dispatcher_thread = Thread(target=self.dispatcher.startReceiver)
-        self._dispatcher_thread.setName(f"{self.localAddress} dispatcher")
-        self._dispatcher_thread.start()
+        self.dispatcher = Dispatcher(self.socket)
+        self._finishedInitializing = True
 
-        while True:
+        while not self._stop:
             #wait for a request to come
-            data = self.dispatcher.request.waitForUpdate()
+            try:
+                data = self.dispatcher.request.waitForUpdate()
+            except TimeoutError:
+                continue
 
-            if data is None: #connection was closed
+            if data is None: # connection was closed
                 logger.info(f"received None data from {self.remoteAddress}, closing connection")
-                self.closeConnection()
+                self._closeConnection(True)
                 break
 
             else: # send the handler response to the client
@@ -72,24 +91,44 @@ class EndPoint():
                     logger.warning(f"unexpected request with data={data} while handler locked from {self.remoteAddress}")
                 packet.sendAll(self.socket, response)
 
-    def closeConnection(self):
+    def startMainLoopThread(self):
+        self.mainLoopThread = Thread(target=self.mainLoop)
+        self.mainLoopThread.setName(f"connection ({self.remoteAddress[0]}:{self.remoteAddress[1]})")
+        self.mainLoopThread.start()
+
+    def _closeConnection(self, calledFromMainLoopThread: bool):
         """
         Closes the connection to the other end point
 
         :param mode: r = read, w = write, rw = read and write (default: 'rw')
         """
 
-        logger.info(f"closeConnection() called")
-        #stop the dispatcher thread and wait for it to return
-        try:
-            self.dispatcher.stopReceiver()
-            self._dispatcher_thread.join()
-        except AttributeError:
-            logger.warn(f"sopping dispatcher failed, probably not started")
-        #close the socket
-        #self.socket._closed is True only if self.socket.close() is called
-        if self.socket._closed == False:
-            self.socket.close()
+        logger.info(f"_closeConnection() called with calledFromMainLoopThread={calledFromMainLoopThread}")
+
+        if self.isStopped():
+            logger.info(f"_closeConnection() ignored since endpoint already stopped")
+        else:
+            # set stop flags for threads: dispatcher.setStopFlag() also sets events for request/response buffers
+            self._stop = True
+            if self._finishedInitializing:
+                self.dispatcher.setStopFlag()
+
+            if not calledFromMainLoopThread:
+                # first join our thread, which should be instant since events for request/response buffers were set
+                self.mainLoopThread.join()
+            if self._finishedInitializing:
+                # then join the dispatcher (could take up to the timeout passed at the beginning)
+                self.dispatcher.thread.join()
+
+            # close the socket
+            if not self.socket._closed:
+                self.socket.close()
+
+    def closeConnection(self):
+        self._closeConnection(False)
+
+    def isStopped(self):
+        return self.socket._closed and not self.mainLoopThread.is_alive()
 
     def loadInterface(self, namespace: type, rawInterface: list = None):
         """
@@ -148,15 +187,6 @@ class EndPoint():
             #assigning the method to the namespace class
             setattr(namespace, command["name"], wrapper)
 
-    def raw_request(self, data: Union[bytes, str]):
-        """
-        send a formatted request to the server and return the response
-
-        :param data: the formatted request to send
-        """
-        logger.debug(f"raw_request() called with data={data}")
-        packet.sendAll(self.socket, data, isRequest=True)
-
     def commandRequest(self, commandIdentifier: str, arguments: list) -> str:
         """
         Format a command request with given arguments, send it and return the response.
@@ -171,7 +201,6 @@ class EndPoint():
         #format the command into a valid request
         data = packet.CommandData.encode(commandIdentifier, arguments)
         #send the request
-        #self.raw_request(data)
         packet.sendAll(self.socket, data, isRequest=True)
         #wait for the response trigger to activate and load the response
         response = self.dispatcher.response.waitForUpdate()

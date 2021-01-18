@@ -41,3 +41,8 @@ def validateHandler(handler: Union[type, Callable]):
                     raise ConfigurationError(
                         f"{handler.__name__} is neither a handler class nor a function"
                     )
+
+def validateNullableHandler(handler: Union[type, Callable, None]):
+    if handler is None:
+        return None
+    return validateHandler(handler)

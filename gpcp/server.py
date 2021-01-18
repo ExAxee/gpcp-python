@@ -1,7 +1,6 @@
 from gpcp.core.base_handler import buildHandlerFromFunction
-from gpcp.utils.handlerValidator import validateHandler
+from gpcp.utils.handlerValidator import validateHandler, validateNullableHandler
 from gpcp.utils.errors import ConfigurationError
-from gpcp.core.connection import Connection
 from gpcp.core.endpoint import EndPoint
 from typing import Union, Callable
 from gpcp.core import packet
@@ -34,6 +33,7 @@ class Server:
         :param host: address or ip to bind the server to
         :param port: port where bind the server
         :param buffer: how many connections can be buffered at the same time
+        :returns: self
         """
 
         logger.info(f"startServer() called with host={host}, port={port}, buffer={buffer}")
@@ -59,53 +59,45 @@ class Server:
                 # Create a new handler using handler as a factory.
                 # The handler can store whatever information it wants relatively to a
                 # connection, so it can't be used statically, but it must be instantiated
-                handler = self.handler()
-                #initializing the endpoint
-                endpoint = EndPoint(connectionSocket, handler, self, self._gpcpRole)
+                handlerInstance = self.handler()
 
-                #setting up the endpoint thread
-                thread = threading.Thread(target=endpoint.mainLoop)
-                thread.setName(f"connection ({address[0]}:{address[1]})")
-
-                #initializing the connection object and starting the thread
-                connection = Connection(endpoint, thread)
-                connection.thread.start()
-
-                endpoint.handler.onConnected(self, endpoint, address)
-                self.connections.append(connection)
+                # initializing the endpoint object and starting the thread
+                endpoint = EndPoint(self, connectionSocket, self.role, handlerInstance)
+                self.connectedEndpoints.append(endpoint)
             except BlockingIOError:
                 pass # there is no connection yet
 
-            for i, connection in enumerate(self.connections):
-                if not connection.thread.is_alive():
-                    logger.debug(f"connection thread {connection.thread.name} is dead, deleting")
-                    del self.connections[i]
+            for i, endpoint in enumerate(self.connectedEndpoints):
+                if endpoint.isStopped():
+                    logger.debug(f"connected endpoint thread {endpoint.mainLoopThread.name} is dead, deleting")
+                    del self.connectedEndpoints[i]
+
+        return self
 
     def closeConnection(self, host, port):
         """
         Closes a connection from a client
 
-        :param ip: ip address of connection to close
+        :param host: ip address of connection to close
         :param port: port of connection to close
         """
 
         logger.info(f"closeConnection() called with host={host}, port={port}")
 
         deleted = False
-        for i, connection in enumerate(self.connections):
-            if connection.endpoint.localAddress == (host, port):
-                data = connection.endpoint.handler.onDisonnected(self, connection.endpoint.socket, connection.endpoint.remoteAddress)
+        for i, endpoint in enumerate(self.connectedEndpoints):
+            if endpoint.endpoint.localAddress == (host, port):
+                data = endpoint.endpoint.handler.onDisonnected(self, endpoint.endpoint.socket, endpoint.endpoint.remoteAddress)
                 if data is not None:
-                    packet.sendAll(connection.socket, data)
+                    packet.sendAll(endpoint.socket, data)
 
-                del self.connections[i]
+                endpoint.closeConnection(True)
+                del self.connectedEndpoints[i]
                 deleted = True
                 break
 
         if not deleted:
-            raise ConfigurationError(
-                f"connection {connection.endpoint.socket.getsockname()} is not a connection of this server"
-            )
+            raise ConfigurationError(f"{host}:{port} is not a connected endpoint of this server")
 
         connection.endpoint.socket.shutdown(socket.SHUT_RDWR)
         connection.endpoint.socket.close()
@@ -120,10 +112,11 @@ class Server:
         try:
             self.socket.close()
         except AttributeError:
-            #does not need exception info as the error is cause by the absence of the 'socket' var
+            # does not need exception info as the error is cause by the absence of the 'socket' var
             logger.warning("unable to correctly stop server, socket not initialized")
             pass
-        except OSError: #the server is not started so there isn't something to stop
+        except OSError:
+            # the server is not started so there isn't something to stop
             logger.warning("unable to correctly stop server, probably not started", exc_info=True)
             pass
 
@@ -131,26 +124,20 @@ class Server:
         """
         Initialize server
 
-        :param handler: a class or a function to call on requests
+        :param role: the role of the server endpoints
+        :param handler: the handler class, usually extending utils.base_handler.BaseHandler
         :param reuseAddress: set if overwrite server on the same port with the current one
         """
 
-        if role == "R":
-            self._gpcpRole = role
-        elif role == "A":
-            self._gpcpRole = role
-        elif role == "AR" or role == "RA":
-            self._gpcpRole = role
-        else:
-            raise ConfigurationError(f"invalid server role for {self.__class__.__name__}: options are ['A', 'R', 'RA' | 'AR']")
+        logger.debug(f"__init__() called with role={role}, handler={handler}, reuseAddress={reuseAddress}")
 
-        logger.debug(f"__init__() called with handler={handler}, reuseAddress={reuseAddress}")
+        if role not in ["R", "A", "AR", "RA"]:
+            raise ConfigurationError(f"invalid role for {self.__class__.__name__}: options are ['A', 'R', 'RA' | 'AR']")
+        self.role = role
 
-        if handler:
-            self.setHandler(handler)
-        else:
-            self.handler = None
-        self.connections = []
+        self.handler = validateNullableHandler(handler)
+
+        self.connectedEndpoints = []
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.setblocking(False)
 
@@ -166,6 +153,3 @@ class Server:
         self.stopServer()
         if exc_type is not None and exc_value is not None and exc_tb is not None:
             print(exc_type, "\n", exc_value, "\n", exc_tb)
-
-    def __del__(self):
-        self.stopServer()
