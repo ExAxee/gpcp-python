@@ -44,6 +44,8 @@ class Server:
             raise ConfigurationError(f"invalid option '{port}' for port, must be integer")
         if not isinstance(buffer, int):
             raise ConfigurationError(f"invalid option '{buffer}' for buffer, must be integer")
+        if self.handler is None:
+            raise ConfigurationError(f"'startServer' can be used only after a handler is assigned")
 
         # start the server
         self.socket.bind((host, port))
@@ -57,7 +59,7 @@ class Server:
                 # Create a new handler using handler as a factory.
                 # The handler can store whatever information it wants relatively to a
                 # connection, so it can't be used statically, but it must be instantiated
-                handlerInstance = None if self.handler is None else self.handler()
+                handlerInstance = self.handler()
 
                 # initializing the endpoint object and starting the thread
                 endpoint = EndPoint(connectionSocket, self.role, handlerInstance)
@@ -69,7 +71,7 @@ class Server:
                 pass # there is no connection yet
 
             for i, endpoint in enumerate(self.connectedEndpoints):
-                if not endpoint.mainLoopThread.is_alive():
+                if endpoint.isStopped():
                     logger.debug(f"connected endpoint thread {endpoint.mainLoopThread.name} is dead, deleting")
                     del self.connectedEndpoints[i]
 

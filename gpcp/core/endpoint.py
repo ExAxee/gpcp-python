@@ -11,14 +11,14 @@ logger = logging.getLogger(__name__)
 
 class EndPoint():
 
-    def __init__(self, socket, validatedRole: str, validatedHandler):
+    def __init__(self, socket, validatedRole: str, handlerInstance):
         self._stop = False
         self._finishedInitializing = False
         self.socket = socket
         self.localAddress = self.socket.getsockname()
         self.remoteAddress = self.socket.getpeername()
         self.role = validatedRole
-        self.handler = validatedHandler
+        self.handler = handlerInstance
 
         # setting up initial data to send
         config = json.dumps({
@@ -91,27 +91,32 @@ class EndPoint():
         :param mode: r = read, w = write, rw = read and write (default: 'rw')
         """
 
-        logger.info(f"closeConnection() called with calledFromMainLoopThread={calledFromMainLoopThread}")
+        logger.info(f"_closeConnection() called with calledFromMainLoopThread={calledFromMainLoopThread}")
 
-        # set stop flags for threads: dispatcher.setStopFlag() also sets events for request/response buffers
-        self._stop = True
-        if self._finishedInitializing:
-            self.dispatcher.setStopFlag()
+        if self.isStopped():
+            logger.info(f"_closeConnection() ignored since endpoint already stopped")
+        else:
+            # set stop flags for threads: dispatcher.setStopFlag() also sets events for request/response buffers
+            self._stop = True
+            if self._finishedInitializing:
+                self.dispatcher.setStopFlag()
 
-        if not calledFromMainLoopThread:
-            # first join our thread, which should be instant since events for request/response buffers were set
-            self.mainLoopThread.join()
-        if self._finishedInitializing:
-            # then join the dispatcher (could take up to the timeout passed at the beginning)
-            self.dispatcher.thread.join()
+            if not calledFromMainLoopThread:
+                # first join our thread, which should be instant since events for request/response buffers were set
+                self.mainLoopThread.join()
+            if self._finishedInitializing:
+                # then join the dispatcher (could take up to the timeout passed at the beginning)
+                self.dispatcher.thread.join()
 
-        #close the socket
-        #self.socket._closed is True only if self.socket.close() was called
-        if not self.socket._closed:
-            self.socket.close()
+            # close the socket
+            if not self.socket._closed:
+                self.socket.close()
 
     def closeConnection(self):
         self._closeConnection(False)
+
+    def isStopped(self):
+        return self.socket._closed and not self.mainLoopThread.is_alive()
 
     def loadInterface(self, namespace: type, rawInterface: list = None):
         """

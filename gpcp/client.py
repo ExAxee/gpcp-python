@@ -36,12 +36,18 @@ class Client(EndPoint):
             raise ConfigurationError(f"invalid option '{port}' for port, must be integer")
         if role not in ["R", "A", "AR", "RA"]:
             raise ConfigurationError(f"invalid role \"{role}\" for {self.__class__.__name__}: options are ['A', 'R', 'RA' | 'AR']")
+
+        # creating handler instance
         validatedHandler = validateNullableHandler(handler)
+        if validatedHandler is None:
+            handlerInstance = None
+        else:
+            handlerInstance = validatedHandler()
 
         # initializing the (super) endpoint and starting the thread
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((host, port))
-        super().__init__(sock, role, validatedHandler)
+        super().__init__(sock, role, handlerInstance)
 
     def __enter__(self):
         return self
