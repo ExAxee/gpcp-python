@@ -62,7 +62,6 @@ class Server:
 
                 # initializing the endpoint object and starting the thread
                 endpoint = EndPoint(connectionSocket, self.role, handler)
-                endpoint.startMainLoopThread()
                 self.connectedEndpoints.append(endpoint)
 
                 # notifying the handler of the new connection
@@ -71,8 +70,8 @@ class Server:
                 pass # there is no connection yet
 
             for i, endpoint in enumerate(self.connectedEndpoints):
-                if not endpoint.thread.is_alive():
-                    logger.debug(f"connected endpoint thread {endpoint.thread.name} is dead, deleting")
+                if not endpoint.mainLoopThread.is_alive():
+                    logger.debug(f"connected endpoint thread {endpoint.mainLoopThread.name} is dead, deleting")
                     del self.connectedEndpoints[i]
 
     def closeConnection(self, host, port):
@@ -92,6 +91,7 @@ class Server:
                 if data is not None:
                     packet.sendAll(endpoint.socket, data)
 
+                endpoint.closeConnection(True)
                 del self.connectedEndpoints[i]
                 deleted = True
                 break

@@ -1,5 +1,5 @@
 from socket import timeout as socket_timeout
-from threading import Event
+from threading import Event, Thread
 import logging
 from gpcp.core import packet
 
@@ -31,6 +31,10 @@ class Dispatcher:
         self.socket.settimeout(timeout)
         self._stop = False
 
+        self.thread = Thread(target=self.startReceiver)
+        self.thread.setName(f"{self.socket.getsockname()} dispatcher")
+        self.thread.start()
+
     def startReceiver(self):
         while not self._stop:
             self.request.update.clear()
@@ -61,7 +65,7 @@ class Dispatcher:
                     self.response.buffer.append(data)
                     self.response.update.set()
 
-    def stopReceiver(self):
+    def setStopFlag(self):
         self.request.update.set()
         self.response.update.set()
         self._stop = True

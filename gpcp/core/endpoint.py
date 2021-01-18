@@ -59,9 +59,6 @@ class EndPoint():
     def mainLoop(self):
         #dispatcher thread setup
         self.dispatcher = Dispatcher(self.socket)
-        self._dispatcher_thread = Thread(target=self.dispatcher.startReceiver)
-        self._dispatcher_thread.setName(f"{self.localAddress} dispatcher")
-        self._dispatcher_thread.start()
 
         while not self._stop:
             #wait for a request to come
@@ -72,7 +69,7 @@ class EndPoint():
 
             if data is None: # connection was closed
                 logger.info(f"received None data from {self.remoteAddress}, closing connection")
-                self.closeConnection()
+                self._closeConnection(True)
                 break
 
             else: # send the handler response to the client
@@ -83,31 +80,36 @@ class EndPoint():
                 packet.sendAll(self.socket, response)
 
     def startMainLoopThread(self):
-        self.thread = Thread(target=self.mainLoop)
-        self.thread.setName(f"connection ({self.remoteAddress[0]}:{self.remoteAddress[1]})")
-        self.thread.start()
+        self.mainLoopThread = Thread(target=self.mainLoop)
+        self.mainLoopThread.setName(f"connection ({self.remoteAddress[0]}:{self.remoteAddress[1]})")
+        self.mainLoopThread.start()
 
-    def closeConnection(self):
+    def _closeConnection(self, calledFromMainLoopThread):
         """
         Closes the connection to the other end point
 
         :param mode: r = read, w = write, rw = read and write (default: 'rw')
         """
 
-        logger.info(f"closeConnection() called")
-        #stop the dispatcher thread and wait for it to return
-        try:
-            self._stop = True
-            self.dispatcher.stopReceiver()
-            self._mainLoopThread.join()
-            self._dispatcher_thread.join()
-        except AttributeError:
-            logger.warn(f"sopping dispatcher failed, probably not started")
+        logger.info(f"closeConnection() called with calledFromMainLoopThread={calledFromMainLoopThread}")
+
+        # set stop flags for threads: dispatcher.setStopFlag() also sets events for request/response buffers
+        self._stop = True
+        self.dispatcher.setStopFlag()
+
+        if not calledFromMainLoopThread:
+            # first join our thread, which should be instant since events for request/response buffers were set
+            self.mainLoopThread.join()
+        # then join the dispatcher (could take up to the timeout passed at the beginning)
+        self.dispatcher.thread.join()
 
         #close the socket
         #self.socket._closed is True only if self.socket.close() was called
         if not self.socket._closed:
             self.socket.close()
+
+    def closeConnection(self):
+        self._closeConnection(False)
 
     def loadInterface(self, namespace: type, rawInterface: list = None):
         """
