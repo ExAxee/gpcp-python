@@ -58,10 +58,10 @@ class Server:
                 # Create a new handler using handler as a factory.
                 # The handler can store whatever information it wants relatively to a
                 # connection, so it can't be used statically, but it must be instantiated
-                handler = self.handler()
+                handlerIntance = self.handler()
 
                 # initializing the endpoint object and starting the thread
-                endpoint = EndPoint(connectionSocket, self.role, handler)
+                endpoint = EndPoint(connectionSocket, self.role, handlerIntance)
                 self.connectedEndpoints.append(endpoint)
 
                 # notifying the handler of the new connection
@@ -124,7 +124,8 @@ class Server:
         """
         Initialize server
 
-        :param handler: a class or a function to call on requests
+        :param role: the role of the server endpoints
+        :param handler: the handler class, usually extending utils.base_handler.BaseHandler
         :param reuseAddress: set if overwrite server on the same port with the current one
         """
 

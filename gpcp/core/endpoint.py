@@ -2,7 +2,6 @@ from threading import Event, Thread
 from typing import Union
 import logging
 import json
-from gpcp.utils.handlerValidator import validateNullableHandler
 from gpcp.utils.base_types import getFromId
 from gpcp.utils.errors import ConfigurationError
 from gpcp.core.dispatcher import Dispatcher
@@ -12,20 +11,18 @@ logger = logging.getLogger(__name__)
 
 class EndPoint():
 
-    def __init__(self, socket, role, handler):
+    def __init__(self, socket, validatedRole: str, validatedHandler):
+        self._stop = False
+        self._finishedInitializing = False
         self.socket = socket
         self.localAddress = self.socket.getsockname()
         self.remoteAddress = self.socket.getpeername()
-        self._stop = False
-
-        if role not in ["R", "A", "AR", "RA"]:
-            raise ConfigurationError(f"invalid role \"{role}\" for {self.__class__.__name__}: options are ['A', 'R', 'RA' | 'AR']")
-
-        self.handler = validateNullableHandler(handler)
+        self.role = validatedRole
+        self.handler = validatedHandler
 
         # setting up initial data to send
         config = json.dumps({
-            "role": role
+            "role": self.role
         })
 
         # initial data transfer
@@ -40,25 +37,28 @@ class EndPoint():
             self.socket.close()
 
         # checking if the endpoints can actually talk to each other
-        if remoteConfig["role"] == "R" and role == "R":
+        if remoteConfig["role"] == "R" and self.role == "R":
             logger.warning(f"both local {self.localAddress} and remote {self.remoteAddress} endpoints can only respond, closing")
             self.socket.close()
-        elif remoteConfig["role"] == "A" and role == "A":
+        elif remoteConfig["role"] == "A" and self.role == "A":
             logger.warning(f"both local {self.localAddress} and remote {self.remoteAddress} endpoints can only request, closing")
             self.socket.close()
 
         # locking the handler if needed
         if self.handler is not None:
-            if role == "A":
+            if self.role == "A":
                 self.handler._LOCK = True
             else:
                 self.handler._LOCK = False
 
         self.startMainLoopThread()
+        while not self._finishedInitializing:
+            pass # wait for the main loop thread to start
 
     def mainLoop(self):
         #dispatcher thread setup
         self.dispatcher = Dispatcher(self.socket)
+        self._finishedInitializing = True
 
         while not self._stop:
             #wait for a request to come
@@ -84,7 +84,7 @@ class EndPoint():
         self.mainLoopThread.setName(f"connection ({self.remoteAddress[0]}:{self.remoteAddress[1]})")
         self.mainLoopThread.start()
 
-    def _closeConnection(self, calledFromMainLoopThread):
+    def _closeConnection(self, calledFromMainLoopThread: bool):
         """
         Closes the connection to the other end point
 
@@ -95,13 +95,15 @@ class EndPoint():
 
         # set stop flags for threads: dispatcher.setStopFlag() also sets events for request/response buffers
         self._stop = True
-        self.dispatcher.setStopFlag()
+        if self._finishedInitializing:
+            self.dispatcher.setStopFlag()
 
         if not calledFromMainLoopThread:
             # first join our thread, which should be instant since events for request/response buffers were set
             self.mainLoopThread.join()
-        # then join the dispatcher (could take up to the timeout passed at the beginning)
-        self.dispatcher.thread.join()
+        if self._finishedInitializing:
+            # then join the dispatcher (could take up to the timeout passed at the beginning)
+            self.dispatcher.thread.join()
 
         #close the socket
         #self.socket._closed is True only if self.socket.close() was called
