@@ -62,11 +62,8 @@ class Server:
                 handlerInstance = self.handler()
 
                 # initializing the endpoint object and starting the thread
-                endpoint = EndPoint(connectionSocket, self.role, handlerInstance)
+                endpoint = EndPoint(self, connectionSocket, self.role, handlerInstance)
                 self.connectedEndpoints.append(endpoint)
-
-                # notifying the handler of the new connection
-                endpoint.handler.onConnected(self, endpoint, address)
             except BlockingIOError:
                 pass # there is no connection yet
 

@@ -11,7 +11,17 @@ logger = logging.getLogger(__name__)
 
 class EndPoint():
 
-    def __init__(self, socket, validatedRole: str, handlerInstance):
+    def __init__(self, server, socket, validatedRole: str, handlerInstance):
+        """
+        initializes this endpoint, starts its main loop on another thread and
+        then notifies the handler with onConnected()
+
+        :param server: the server this endpoint belongs to, can be None if this
+                       endpoint belongs to a client
+        :param socket: the socket for the connection
+        :param validatedRole:str: the role of this endpoint, already validated
+        :param handlerInstance: the handler instance
+        """
         self._stop = False
         self._finishedInitializing = False
         self.socket = socket
@@ -54,6 +64,8 @@ class EndPoint():
         self.startMainLoopThread()
         while not self._finishedInitializing:
             pass # wait for the main loop thread to start
+        if self.handler is not None:
+            self.handler.onConnected(server, self, self.remoteAddress)
 
     def mainLoop(self):
         #dispatcher thread setup

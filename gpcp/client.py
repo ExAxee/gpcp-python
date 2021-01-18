@@ -17,7 +17,7 @@ class Client(EndPoint):
     gpcp client main class, used for creating and using a client
     """
 
-    def __init__(self, host: str, port: int, role = "A", handler = None):
+    def __init__(self, host: str, port: int, role: str = "A", handler = None):
         """
         Connect to a server
 
@@ -47,7 +47,7 @@ class Client(EndPoint):
         # initializing the (super) endpoint and starting the thread
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((host, port))
-        super().__init__(sock, role, handlerInstance)
+        super().__init__(None, sock, role, handlerInstance)
 
     def __enter__(self):
         return self
