@@ -154,15 +154,6 @@ class EndPoint():
             #assigning the method to the namespace class
             setattr(namespace, command["name"], wrapper)
 
-    def raw_request(self, data: Union[bytes, str]):
-        """
-        send a formatted request to the server and return the response
-
-        :param data: the formatted request to send
-        """
-        logger.debug(f"raw_request() called with data={data}")
-        packet.sendAll(self.socket, data, isRequest=True)
-
     def commandRequest(self, commandIdentifier: str, arguments: list) -> str:
         """
         Format a command request with given arguments, send it and return the response.
@@ -177,7 +168,6 @@ class EndPoint():
         #format the command into a valid request
         data = packet.CommandData.encode(commandIdentifier, arguments)
         #send the request
-        #self.raw_request(data)
         packet.sendAll(self.socket, data, isRequest=True)
         #wait for the response trigger to activate and load the response
         response = self.dispatcher.response.waitForUpdate()
