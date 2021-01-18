@@ -1,22 +1,20 @@
-from gpcp.utils.errors import ConfigurationError
-from gpcp.utils.base_types import getFromId
-from gpcp.core.dispatcher import Dispatcher
 from threading import Event, Thread
-from gpcp.core import packet
 from typing import Union
 import logging
-import socket
 import json
+from gpcp.utils.base_types import getFromId
+from gpcp.core.dispatcher import Dispatcher
+from gpcp.core import packet
 
 logger = logging.getLogger(__name__)
 
 class EndPoint():
 
     def __init__(self, socket, handler, server, role):
-        self.socket  = socket
+        self.socket = socket
         self.handler = handler
-        self.server  = server
-        self.localAddress  = self.socket.getsockname()
+        self.server = server
+        self.localAddress = self.socket.getsockname()
         self.remoteAddress = self.socket.getpeername()
 
         # setting up initial data to send
@@ -42,25 +40,30 @@ class EndPoint():
         elif remoteConfig["role"] == "A" and role == "A":
             logger.warning(f"both local {self.localAddress} and remote {self.remoteAddress} endpoints can only request, closing")
             self.socket.close()
-        
+
         # locking the handler if needed
-        if role == "A":
-            self.handler._LOCK = True
-        else:
-            self.handler._LOCK = False
+        if self.handler is not None:
+            if role == "A":
+                self.handler._LOCK = True
+            else:
+                self.handler._LOCK = False
 
     def mainLoop(self):
         #dispatcher thread setup
-        self.dispatcher = Dispatcher(self.socket, Event(), Event())
+        self.dispatcher = Dispatcher(self.socket)
         self._dispatcher_thread = Thread(target=self.dispatcher.startReceiver)
         self._dispatcher_thread.setName(f"{self.localAddress} dispatcher")
         self._dispatcher_thread.start()
+        self._stop = False
 
-        while True:
+        while not self._stop:
             #wait for a request to come
-            data = self.dispatcher.request.waitForUpdate()
+            try:
+                data = self.dispatcher.request.waitForUpdate()
+            except TimeoutError:
+                continue
 
-            if data is None: #connection was closed
+            if data is None: # connection was closed
                 logger.info(f"received None data from {self.remoteAddress}, closing connection")
                 self.closeConnection()
                 break
@@ -82,13 +85,16 @@ class EndPoint():
         logger.info(f"closeConnection() called")
         #stop the dispatcher thread and wait for it to return
         try:
+            self._stop = True
             self.dispatcher.stopReceiver()
+            self._mainLoopThread.join()
             self._dispatcher_thread.join()
         except AttributeError:
             logger.warn(f"sopping dispatcher failed, probably not started")
+
         #close the socket
-        #self.socket._closed is True only if self.socket.close() is called
-        if self.socket._closed == False:
+        #self.socket._closed is True only if self.socket.close() was called
+        if not self.socket._closed:
             self.socket.close()
 
     def loadInterface(self, namespace: type, rawInterface: list = None):

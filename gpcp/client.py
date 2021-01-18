@@ -60,12 +60,13 @@ class Client(EndPoint):
         elif remoteConfig["role"] == "A" and self._gpcpRole == "A":
             logger.warning(f"both local {self.localAddress} and remote {self.remoteAddress} endpoints can only request, closing")
             self.socket.close()
-        
+
         # locking the handler if needed
-        if self._gpcpRole == "A":
-            self.handler._LOCK = True
-        else:
-            self.handler._LOCK = False
+        if self.handler is not None:
+            if self._gpcpRole == "A":
+                self.handler._LOCK = True
+            else:
+                self.handler._LOCK = False
 
         #setting up the thread
         self._mainLoopThread = Thread(target=self.mainLoop)

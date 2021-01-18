@@ -2,6 +2,7 @@
 from typing import Union, Tuple
 import logging
 import json
+import socket
 
 logger = logging.getLogger(__name__)
 
@@ -82,17 +83,20 @@ def receiveAll(connection) -> Union[str, None]:
     :param connection: the socket where recieve data
     """
 
-    head = connection.recv(HEADER_LENGTH) #read the header from a buffered request
+    try:
+        head = connection.recv(HEADER_LENGTH) #read the header from a buffered request
 
-    if head:
-        byteCount, isRequest = Header.decode(head)
-        data = connection.recv(byteCount) #read the actual message of len head
-        logger.debug(f"receiving data fragment {data} from {connection.getpeername()}")
+        if head:
+            byteCount, isRequest = Header.decode(head)
+            data = connection.recv(byteCount) #read the actual message of len head
+            logger.debug(f"receiving data fragment {data} from {connection.getpeername()}")
 
-        while len(data) < byteCount:
-            fragment = connection.recv(byteCount - len(data))
-            logger.debug(f"receiving data fragment {fragment} from {connection.getpeername()}")
-            data += fragment
+            while len(data) < byteCount:
+                fragment = connection.recv(byteCount - len(data))
+                logger.debug(f"receiving data fragment {fragment} from {connection.getpeername()}")
+                data += fragment
 
-        return (data, isRequest)
-    return (None, None)
+            return (data, isRequest)
+        return (None, None)
+    except socket.timeout:
+        raise TimeoutError()
