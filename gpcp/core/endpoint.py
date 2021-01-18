@@ -14,15 +14,14 @@ class EndPoint():
 
     def __init__(self, socket, role, handler):
         self.socket = socket
-        self.handler = handler
         self.localAddress = self.socket.getsockname()
         self.remoteAddress = self.socket.getpeername()
+        self._stop = False
 
         if role not in ["R", "A", "AR", "RA"]:
             raise ConfigurationError(f"invalid role \"{role}\" for {self.__class__.__name__}: options are ['A', 'R', 'RA' | 'AR']")
 
-        if self.handler is not None:
-            self.handler = validateHandler(handler)
+        self.handler = validateNullableHandler(handler)
 
         # setting up initial data to send
         config = json.dumps({
@@ -61,7 +60,6 @@ class EndPoint():
         self._dispatcher_thread = Thread(target=self.dispatcher.startReceiver)
         self._dispatcher_thread.setName(f"{self.localAddress} dispatcher")
         self._dispatcher_thread.start()
-        self._stop = False
 
         while not self._stop:
             #wait for a request to come

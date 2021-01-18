@@ -1,5 +1,5 @@
 from gpcp.core.base_handler import buildHandlerFromFunction
-from gpcp.utils.handlerValidator import validateHandler
+from gpcp.utils.handlerValidator import validateHandler, validateNullableHandler
 from gpcp.utils.errors import ConfigurationError
 from gpcp.core.connection import Connection
 from gpcp.core.endpoint import EndPoint
@@ -135,21 +135,14 @@ class Server:
         :param reuseAddress: set if overwrite server on the same port with the current one
         """
 
-        if role == "R":
-            self._gpcpRole = role
-        elif role == "A":
-            self._gpcpRole = role
-        elif role == "AR" or role == "RA":
-            self._gpcpRole = role
-        else:
-            raise ConfigurationError(f"invalid server role for {self.__class__.__name__}: options are ['A', 'R', 'RA' | 'AR']")
+        logger.debug(f"__init__() called with role={role}, handler={handler}, reuseAddress={reuseAddress}")
 
-        logger.debug(f"__init__() called with handler={handler}, reuseAddress={reuseAddress}")
+        if role not in ["R", "A", "AR", "RA"]:
+            raise ConfigurationError(f"invalid role for {self.__class__.__name__}: options are ['A', 'R', 'RA' | 'AR']")
+        self.role = role
 
-        if handler:
-            self.setHandler(handler)
-        else:
-            self.handler = None
+        self.handler = validateNullableHandler(handler)
+
         self.connections = []
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.setblocking(False)

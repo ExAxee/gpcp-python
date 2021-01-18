@@ -25,7 +25,7 @@ class Client(EndPoint):
         :returns: self, so that this function can be called inside a `with`
         """
 
-        logger.info(f"connect() called with host={host}, port={port}")
+        logger.info(f"__init__() called with host={host}, port={port}, role={role}, handler={handler}")
 
         if not isinstance(host, str):
             raise ConfigurationError(f"invalid option '{host}' for host, must be string")
