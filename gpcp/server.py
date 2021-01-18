@@ -61,7 +61,7 @@ class Server:
                 # connection, so it can't be used statically, but it must be instantiated
                 handler = self.handler()
                 #initializing the endpoint
-                endpoint = EndPoint(connectionSocket, handler, self, self._gpcpRole)
+                endpoint = EndPoint(connectionSocket, self._gpcpRole, handler)
 
                 #setting up the endpoint thread
                 thread = threading.Thread(target=endpoint.mainLoop)

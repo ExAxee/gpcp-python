@@ -1,4 +1,3 @@
-from gpcp.utils.handlerValidator import validateHandler
 from gpcp.utils.errors import ConfigurationError
 from gpcp.utils.base_types import getFromId
 from gpcp.core.dispatcher import Dispatcher
@@ -17,7 +16,7 @@ class Client(EndPoint):
     gpcp client main class, used for creating and using a client
     """
 
-    def connect(self, host: str, port: int):
+    def __init__(self, host: str, port: int, role = "A", handler = None):
         """
         Connect to a server
 
@@ -33,66 +32,14 @@ class Client(EndPoint):
         if not isinstance(port, int):
             raise ConfigurationError(f"invalid option '{port}' for port, must be integer")
 
-        self.socket.connect((host, port))
-        self.localAddress = self.socket.getsockname()
-        self.remoteAddress = self.socket.getpeername()
-
-        # setting up initial data to send
-        config = json.dumps({
-            "role":self._gpcpRole
-        })
-
-        # initial data transfer
-        packet.sendAll(self.socket, config)
-        logger.debug(f"remote config sent to {self.remoteAddress}: {config}")
-        remoteConfig = json.loads(packet.receiveAll(self.socket)[0])
-        logger.debug(f"remote config recieved on {self.localAddress}: {remoteConfig}")
-
-        # checking config validity
-        if remoteConfig["role"] not in ["R", "A", "AR", "RA"]:
-            logger.error(f"invalid configuration argument '{remoteConfig['role']}' for 'role' in connection {self.remoteAddress}, closing")
-            self.socket.close()
-
-        # checking if the endpoints can actually talk to each other
-        if remoteConfig["role"] == "R" and self._gpcpRole == "R":
-            logger.warning(f"both local {self.localAddress} and remote {self.remoteAddress} endpoints can only respond, closing")
-            self.socket.close()
-        elif remoteConfig["role"] == "A" and self._gpcpRole == "A":
-            logger.warning(f"both local {self.localAddress} and remote {self.remoteAddress} endpoints can only request, closing")
-            self.socket.close()
-
-        # locking the handler if needed
-        if self.handler is not None:
-            if self._gpcpRole == "A":
-                self.handler._LOCK = True
-            else:
-                self.handler._LOCK = False
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((host, port))
+        super().__init__(sock, role, handler)
 
         #setting up the thread
         self._mainLoopThread = Thread(target=self.mainLoop)
         self._mainLoopThread.setName(f"connection ({self.socket.getpeername()[0]}:{self.socket.getpeername()[1]})")
         self._mainLoopThread.start()
-
-        return self
-
-    def __init__(self, role = "A", handler = None):
-        logger.debug(f"__init__() called with handler={handler}")
-
-        if role == "R":
-            self._gpcpRole = role
-        elif role == "A":
-            self._gpcpRole = role
-        elif role == "AR" or role == "RA":
-            self._gpcpRole = role
-        else:
-            raise ConfigurationError(f"invalid server role for {self.__class__.__name__}: options are ['A', 'R', 'RA' | 'AR']")
-
-        if handler:
-            self.handler = validateHandler(handler)()
-        else:
-            self.handler = None
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._stop = False
 
     def __enter__(self):
         return self

@@ -2,7 +2,9 @@ from threading import Event, Thread
 from typing import Union
 import logging
 import json
+from gpcp.utils.handlerValidator import validateHandler
 from gpcp.utils.base_types import getFromId
+from gpcp.utils.errors import ConfigurationError
 from gpcp.core.dispatcher import Dispatcher
 from gpcp.core import packet
 
@@ -10,16 +12,21 @@ logger = logging.getLogger(__name__)
 
 class EndPoint():
 
-    def __init__(self, socket, handler, server, role):
+    def __init__(self, socket, role, handler):
         self.socket = socket
         self.handler = handler
-        self.server = server
         self.localAddress = self.socket.getsockname()
         self.remoteAddress = self.socket.getpeername()
 
+        if role not in ["R", "A", "AR", "RA"]:
+            raise ConfigurationError(f"invalid role \"{role}\" for {self.__class__.__name__}: options are ['A', 'R', 'RA' | 'AR']")
+
+        if self.handler is not None:
+            self.handler = validateHandler(handler)
+
         # setting up initial data to send
         config = json.dumps({
-            "role":role
+            "role": role
         })
 
         # initial data transfer
