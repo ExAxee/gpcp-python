@@ -86,21 +86,18 @@ class Server:
 
         deleted = False
         for i, endpoint in enumerate(self.connectedEndpoints):
-            if endpoint.endpoint.localAddress == (host, port):
-                data = endpoint.endpoint.handler.onDisonnected(self, endpoint.endpoint.socket, endpoint.endpoint.remoteAddress)
+            if endpoint.localAddress == (host, port):
+                data = endpoint.handler.onDisonnected(self, endpoint.socket, endpoint.remoteAddress)
                 if data is not None:
                     packet.sendAll(endpoint.socket, data)
 
-                endpoint.closeConnection(True)
+                endpoint._closeConnection(True)
                 del self.connectedEndpoints[i]
                 deleted = True
                 break
 
         if not deleted:
             raise ConfigurationError(f"{host}:{port} is not a connected endpoint of this server")
-
-        connection.endpoint.socket.shutdown(socket.SHUT_RDWR)
-        connection.endpoint.socket.close()
 
     def stopServer(self):
         """

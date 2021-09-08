@@ -1,6 +1,6 @@
+from gpcp.utils.handlerValidator import validateNullableHandler
 from gpcp.utils.errors import ConfigurationError
 from gpcp.utils.base_types import getFromId
-from gpcp.utils.handlerValidator import validateNullableHandler
 from gpcp.core.dispatcher import Dispatcher
 from gpcp.core.endpoint import EndPoint
 from threading import Event, Thread
