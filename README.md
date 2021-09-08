@@ -1,9 +1,13 @@
 # gpcp - General Purpose Connection Protocol
-A simple framework written in Python 3 created to make it easier to create socket servers and clients
+A simple framework written in Python 3 created to make it easier to create socket servers and clients.
 
-Some simple examples are available in the [examples/](examples/) folder
+## Installation
+Install gpcp using the `setup.py` file: just run `python3 -m pip install .` in the root folder. Then you can `import gpcp` from anywhere.
 
-The roadmap is available on [Trello](https://trello.com/b/wzVH18Fd/gpcp "GPCP On Trello")
+gpcp is not ready yet, but if you want to try it you are free to use it.
 
-If you want to try it you are free to use it.
-Now is not so ready to use it in projects but it will, if you find problems or want to give a suggestion please open an issue here.
+## Examples
+Some simple examples are available in the [examples/](examples/) folder.
+
+## Contributing
+The roadmap is available on [Trello](https://trello.com/b/wzVH18Fd/gpcp "GPCP On Trello"). Now gpcp is not so ready to use it in projects but it will, if you find problems or want to give a suggestion please open an issue here.
