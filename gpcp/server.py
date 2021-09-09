@@ -41,6 +41,8 @@ class Server:
         if reuseAddress:
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
+        self.running = threading.Event()
+
     def __enter__(self):
         return self
 
@@ -80,12 +82,15 @@ class Server:
             raise ConfigurationError(f"invalid option '{buffer}' for buffer, must be integer")
         if self.handler is None:
             raise ConfigurationError(f"'startServer' can be used only after a handler is assigned")
+        if self.running.is_set():
+            raise ValueError(f"server is already running, cannot start another one with the same object")
 
         # start the server
         self.socket.bind((host, port))
         self.socket.listen(buffer)
 
-        while True:
+        self.running.set()
+        while self.running.is_set():
             try:
                 connectionSocket, address = self.socket.accept()
                 logger.info(f"new connection: {address}")
@@ -105,6 +110,17 @@ class Server:
                 if endpoint.isStopped():
                     logger.debug(f"connected endpoint thread {endpoint.mainLoopThread.name} is dead, deleting")
                     del self.connectedEndpoints[i]
+
+        # closing all connections, after self.running became unset
+        for endpoint in self.connectedEndpoints:
+            self.closeConnection(endpoint.localAddress[0], endpoint.localAddress[1])
+
+        # closing socket, after self.running became unset
+        try:
+            self.socket.close()
+        except OSError:
+            # the server is not started so there isn't something to stop
+            logger.warning("unable to correctly stop server, probably not started", exc_info=True)
 
         return self
 
@@ -139,12 +155,4 @@ class Server:
         """
 
         logger.info(f"stopServer() called")
-
-        for endpoint in self.connectedEndpoints:
-            self.closeConnection(endpoint.localAddress[0], endpoint.localAddress[1])
-
-        try:
-            self.socket.close()
-        except OSError:
-            # the server is not started so there isn't something to stop
-            logger.warning("unable to correctly stop server, probably not started", exc_info=True)
+        self.running.clear() # this will be handled at the bottom of startServer()
