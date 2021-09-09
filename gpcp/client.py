@@ -52,5 +52,6 @@ class Client(EndPoint):
     def __enter__(self):
         return self
 
-    def __exit__(self, exc_type, exc_value, exc_tb):
+    def __exit__(self, *args, **kwargs):
         self.closeConnection()
+        return False # let the caller handle exceptions
