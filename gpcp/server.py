@@ -46,10 +46,9 @@ class Server:
     def __enter__(self):
         return self
 
-    def __exit__(self, exc_type, exc_value, exc_tb):
+    def __exit__(self, *args, **kwargs):
         self.stopServer()
-        if exc_type is not None and exc_value is not None and exc_tb is not None:
-            print(exc_type, "\n", exc_value, "\n", exc_tb)
+        return False # let the caller handle exceptions
 
     def setHandler(self, handler: Union[type, Callable]):
         """
