@@ -106,12 +106,11 @@ class Server:
 
         logger.info(f"stopServer() called")
 
+        for endpoint in self.connectedEndpoints:
+            self.closeConnection(endpoint.localAddress[0], endpoint.localAddress[1])
+
         try:
             self.socket.close()
-        except AttributeError:
-            # does not need exception info as the error is cause by the absence of the 'socket' var
-            logger.warning("unable to correctly stop server, socket not initialized")
-            pass
         except OSError:
             # the server is not started so there isn't something to stop
             logger.warning("unable to correctly stop server, probably not started", exc_info=True)
