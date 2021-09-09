@@ -15,6 +15,40 @@ class Server:
     gpcp server main class, used for creating and using a server
     """
 
+    def __init__(self, role = "R", handler: Union[type, Callable] = None, reuseAddress: bool = False):
+        """
+        Initialize server
+
+        :param role: the role of the server endpoints
+        :param handler: the handler class, usually extending utils.base_handler.BaseHandler
+        :param reuseAddress: set if overwrite server on the same port with the current one
+        """
+
+        logger.debug(f"__init__() called with role={role}, handler={handler}, reuseAddress={reuseAddress}")
+
+        if role not in ["R", "A", "AR", "RA"]:
+            raise ConfigurationError(f"invalid role for {self.__class__.__name__}: options are ['A', 'R', 'RA' | 'AR']")
+        self.role = role
+
+        self.handler = validateNullableHandler(handler)
+
+        self.connectedEndpoints = []
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.setblocking(False)
+
+        if not isinstance(reuseAddress, bool):
+            raise ConfigurationError(f"invalid option '{reuseAddress}' for reuseAddress, must be 'True' or 'False'")
+        if reuseAddress:
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_tb):
+        self.stopServer()
+        if exc_type is not None and exc_value is not None and exc_tb is not None:
+            print(exc_type, "\n", exc_value, "\n", exc_tb)
+
     def setHandler(self, handler: Union[type, Callable]):
         """
         Sets the handler class used as a factory to instantiate a handler for every connection
@@ -114,38 +148,3 @@ class Server:
         except OSError:
             # the server is not started so there isn't something to stop
             logger.warning("unable to correctly stop server, probably not started", exc_info=True)
-            pass
-
-    def __init__(self, role = "R", handler: Union[type, Callable] = None, reuseAddress: bool = False):
-        """
-        Initialize server
-
-        :param role: the role of the server endpoints
-        :param handler: the handler class, usually extending utils.base_handler.BaseHandler
-        :param reuseAddress: set if overwrite server on the same port with the current one
-        """
-
-        logger.debug(f"__init__() called with role={role}, handler={handler}, reuseAddress={reuseAddress}")
-
-        if role not in ["R", "A", "AR", "RA"]:
-            raise ConfigurationError(f"invalid role for {self.__class__.__name__}: options are ['A', 'R', 'RA' | 'AR']")
-        self.role = role
-
-        self.handler = validateNullableHandler(handler)
-
-        self.connectedEndpoints = []
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.setblocking(False)
-
-        if not isinstance(reuseAddress, bool):
-            raise ConfigurationError(f"invalid option '{reuseAddress}' for reuseAddress, must be 'True' or 'False'")
-        if reuseAddress:
-            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, exc_tb):
-        self.stopServer()
-        if exc_type is not None and exc_value is not None and exc_tb is not None:
-            print(exc_type, "\n", exc_value, "\n", exc_tb)
