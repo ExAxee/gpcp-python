@@ -34,7 +34,8 @@ class Server:
 
         self.connectedEndpoints = []
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.setblocking(False)
+        self.socket.setblocking(True)
+        self.socket.settimeout(0.1)
 
         if not isinstance(reuseAddress, bool):
             raise ConfigurationError(f"invalid option '{reuseAddress}' for reuseAddress, must be 'True' or 'False'")
@@ -102,7 +103,7 @@ class Server:
                 # initializing the endpoint object and starting the thread
                 endpoint = EndPoint(self, connectionSocket, self.role, handlerInstance)
                 self.connectedEndpoints.append(endpoint)
-            except BlockingIOError:
+            except socket.timeout:
                 pass # there is no connection yet
 
             for i, endpoint in enumerate(self.connectedEndpoints):
