@@ -7,6 +7,15 @@ class TypeBase:
     def deserialize(entry):
         raise NotImplementedError()
 
+class NoneType:
+    @staticmethod
+    def serialize(value):
+        return None # will translate to `null` in json
+
+    @staticmethod
+    def deserialize(entry):
+        return None
+
 class JsonBuiltinType(TypeBase):
     @staticmethod
     def serialize(value):
@@ -50,6 +59,8 @@ def getIfBuiltIn(argumentType):
         :param argumentType: a type to convert if it's a built-in one
     """
 
+    if argumentType is None:
+        return NoneType
     if argumentType == dict:
         return JsonObject
     if argumentType == list:
@@ -67,18 +78,19 @@ def getIfBuiltIn(argumentType):
     return argumentType
 
 # DO NOT MODIFY THE ORDER OF THIS ARRAY unless you also change the IDs in all other implementations
-allTypesArray = [JsonObject, JsonArray, String, Boolean, Integer, Float, Bytes]
+allTypesArray = [NoneType, JsonObject, JsonArray, String, Boolean, Integer, Float, Bytes]
 
-def getFromId(integerId: int):
+def getFromId(integerId: int) -> type:
     """
     Returns the BaseType corresponding to id, by looking into the `allTypesArray` array
         :param integerId: an int smaller than the size of the array
     """
     return allTypesArray[integerId]
 
-def toId(baseType: type):
+def toId(baseType: type) -> int:
     """
     Returns the id corresponding to the BaseType, by taking its index in the `allTypesArray` array
         :param baseType: a BaseType existing in the array
+        :returns: an integer identifier
     """
     return allTypesArray.index(baseType)

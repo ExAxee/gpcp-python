@@ -58,14 +58,11 @@ def command(arg):
     def getReturnType(func: Callable):
         """
         Obtains the return type of a function (if specified with `def function() -> type:`)
-        defaulting to `Bytes`. Built-in types are supported.
+        defaulting to `NoneType` if the user specified no return type. Built-in types are
+        supported.
         """
 
         returnType = func.__annotations__.get("return", None)
-
-        if returnType is None:
-            raise ConfigurationError(f"missing return type for handler function '{func.__name__}'")
-
         return getIfBuiltIn(returnType)
 
     def getDescription(func: Callable):
