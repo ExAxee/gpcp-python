@@ -6,9 +6,14 @@ import socket
 
 logger = logging.getLogger(__name__)
 
-HEADER_LENGTH = 4
 HEADER_BYTEORDER = "big"
-ENCODING = "utf-8"
+HEADER_LENGTH    = 4
+ENCODING         = "utf-8"
+
+KEEP_ALIVE   = 0
+STD_REQUEST  = 1
+STD_RESPONSE = 2
+STD_PUSH     = 3
 
 class CommandData:
 
@@ -40,37 +45,60 @@ class CommandData:
 class Header:
 
     @staticmethod
-    def encode(length: int, isRequest: bool) -> bytes:
-        if length > 0x7fffffff: #0x7fffffff == 01111111 11111111 11111111 11111111
-            raise ValueError("length too big to handle")
+    def encode(length: int, packetType: int) -> bytes:
+        # 0x1fffffff == 0001 1111|1111 1111|1111 1111|1111 1111
+        # header bits-> ^^^
+        if length > 0x1fffffff or length < 0:
+            raise ValueError("length too " + "small" if length < 0 else "large" + " to handle")
 
-        byteList = [isRequest << 7 + ((length >> 24) & 0x7f), (length >> 16) & 0xff, (length >> 8) & 0xff, (length) & 0xff]
-        logger.debug(f"header encoded from length {length}, isRequest {isRequest} to: {bytes(byteList)}")
+        if packetType in [STD_REQUEST, STD_RESPONSE, STD_PUSH]:
+            byteList = [
+                packetType << 5 + ((length >> 24) & 0x1f),
+                (length >> 16) & 0xff,
+                (length >> 8)  & 0xff,
+                (length)       & 0xff
+            ]
+        else:
+            raise ValueError(f"packet type {packetType} not recognized")
+
+        logger.debug(f"header encoded from length {length}, packetType {packetType} to: {bytes(byteList)}")
         return byteList
 
     @staticmethod
     def decode(head) -> int:
-        isRequest = bool(head[0] & 0x80)
+        packetType = (head[0] & 0b11100000) >> 5
 
-        byteList = [head[0] & 0x7f]
+        if packetType == 0:
+            logger.debug(f"header decoded, recieved KEEP_ALIVE")
+            return (0, 0)
+
+        byteList = [head[0] & 0x1f]
         for i in range(1, HEADER_LENGTH):
             byteList.append(head[i] & 0xff)
 
-        logger.debug(f"header decoded from head {head} to: isRequest {isRequest}; bytes {byteList}")
-        return (int.from_bytes(bytes(byteList), HEADER_BYTEORDER), isRequest)
+        logger.debug(f"header decoded with length {length}, packetType {packetType} from: {bytes(byteList)}")
+        return (
+            int.from_bytes(bytes(byteList), HEADER_BYTEORDER),
+            packetType
+            )
 
-def sendAll(connection, data: Union[bytes, str], isRequest:bool = False):
+def sendKeepAlive(connection):
+    logger.debug(f"sent KEEP_ALIVE")
+    connection.send(0)
+
+def sendAll(connection, data: Union[bytes, str], packetType: int = STD_RESPONSE):
     """
     sends all data, this is not the default socket.sendall() function
 
     :param connection: the socket where to send the data
     :param data: the data to send
+    :param packetType: the packet type
     """
 
     if isinstance(data, str):
         data = data.encode(ENCODING)
 
-    data = bytes(Header.encode(len(data), isRequest)) + data
+    data = bytes(Header.encode(len(data), packetType)) + data
     while data:
         logger.debug(f"sending data fragment {data} to {connection.getpeername()}")
         sent = connection.send(data)
@@ -84,10 +112,14 @@ def receiveAll(connection) -> Union[str, None]:
     """
 
     try:
-        head = connection.recv(HEADER_LENGTH) #read the header from a buffered request
+        #read the first byte of the header from a buffered request
+        head = connection.recv(1)
 
-        if head:
-            byteCount, isRequest = Header.decode(head)
+        if head is None: # recieve None if connection is closed
+            return (None, None)
+        elif head != 0: # recieve something if there is packet
+            head += connection.recv(3)
+            byteCount, packetType = Header.decode(head)
             data = connection.recv(byteCount) #read the actual message of len head
             logger.debug(f"receiving data fragment {data} from {connection.getpeername()}")
 
@@ -96,7 +128,8 @@ def receiveAll(connection) -> Union[str, None]:
                 logger.debug(f"receiving data fragment {fragment} from {connection.getpeername()}")
                 data += fragment
 
-            return (data, isRequest)
-        return (None, None)
+            return (data, packetType)
+        else: # KEEP_ALIVE
+            return (None, 0)
     except socket.timeout:
         raise TimeoutError()
