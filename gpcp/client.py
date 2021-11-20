@@ -6,6 +6,7 @@ from gpcp.core.endpoint import EndPoint
 from threading import Event, Thread
 from gpcp.core import packet
 from typing import Union
+import ssl
 import socket
 import json
 
@@ -45,9 +46,14 @@ class Client(EndPoint):
             handlerInstance = validatedHandler()
 
         # initializing the (super) endpoint and starting the thread
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((host, port))
-        super().__init__(None, sock, role, handlerInstance)
+        context = ssl.create_default_context() # tls context
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        plainSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        plainSocket.connect((host, port))
+        tlsSocket = context.wrap_socket(plainSocket, server_hostname=host)
+        tlsSocket.__enter__()
+        super().__init__(None, tlsSocket, role, handlerInstance)
 
     def __enter__(self):
         return self

@@ -18,7 +18,7 @@ class EndPoint():
 
         :param server: the server this endpoint belongs to, can be None if this
                        endpoint belongs to a client
-        :param socket: the socket for the connection
+        :param socket: the tls socket for the connection (used to transfer encrypted data)
         :param validatedRole:str: the role of this endpoint, already validated
         :param handlerInstance: the handler instance
         """
@@ -121,8 +121,7 @@ class EndPoint():
                 self.dispatcher.thread.join()
 
             # close the socket
-            if not self.socket._closed:
-                self.socket.close()
+            self.socket.__exit__() # exit wrapped tls socket
 
     def closeConnection(self):
         self._closeConnection(False)

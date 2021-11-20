@@ -4,6 +4,7 @@ from gpcp.utils.errors import ConfigurationError
 from gpcp.core.endpoint import EndPoint
 from typing import Union, Callable
 from gpcp.core import packet
+import ssl
 import threading
 import socket
 
@@ -33,7 +34,7 @@ class Server:
         self.handler = validateNullableHandler(handler)
 
         self.connectedEndpoints = []
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
         self.socket.setblocking(True)
         self.socket.settimeout(0.1)
 
@@ -85,31 +86,36 @@ class Server:
         if self.running.is_set():
             raise ValueError(f"server is already running, cannot start another one with the same object")
 
+        # tls context
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain(certfile="cert.pem", keyfile="cert.pem")
+
         # start the server
         self.socket.bind((host, port))
         self.socket.listen(buffer)
 
         self.running.set()
-        while self.running.is_set():
-            try:
-                connectionSocket, address = self.socket.accept()
-                logger.info(f"new connection: {address}")
+        with context.wrap_socket(self.socket, server_side=True) as tlsSocket:
+            while self.running.is_set():
+                try:
+                    connectionSocket, address = tlsSocket.accept()
+                    logger.info(f"new connection: {address}")
 
-                # Create a new handler using handler as a factory.
-                # The handler can store whatever information it wants relatively to a
-                # connection, so it can't be used statically, but it must be instantiated
-                handlerInstance = self.handler()
+                    # Create a new handler using handler as a factory.
+                    # The handler can store whatever information it wants relatively to a
+                    # connection, so it can't be used statically, but it must be instantiated
+                    handlerInstance = self.handler()
 
-                # initializing the endpoint object and starting the thread
-                endpoint = EndPoint(self, connectionSocket, self.role, handlerInstance)
-                self.connectedEndpoints.append(endpoint)
-            except socket.timeout:
-                pass # there is no connection yet
+                    # initializing the endpoint object and starting the thread
+                    endpoint = EndPoint(self, connectionSocket, self.role, handlerInstance)
+                    self.connectedEndpoints.append(endpoint)
+                except socket.timeout:
+                    pass # there is no connection yet
 
-            for i, endpoint in enumerate(self.connectedEndpoints):
-                if endpoint.isStopped():
-                    logger.debug(f"connected endpoint thread {endpoint.mainLoopThread.name} is dead, deleting")
-                    del self.connectedEndpoints[i]
+                for i, endpoint in enumerate(self.connectedEndpoints):
+                    if endpoint.isStopped():
+                        logger.debug(f"connected endpoint thread {endpoint.mainLoopThread.name} is dead, deleting")
+                        del self.connectedEndpoints[i]
 
         # closing all connections, after self.running became unset
         for endpoint in self.connectedEndpoints:
