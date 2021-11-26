@@ -6,10 +6,12 @@ import socket
 
 logger = logging.getLogger(__name__)
 
+# header encoding data
 HEADER_BYTEORDER = "big"
 HEADER_LENGTH    = 4
 ENCODING         = "utf-8"
 
+# header packet type numbers
 KEEP_ALIVE   = 0
 STD_REQUEST  = 1
 STD_RESPONSE = 2
@@ -46,18 +48,21 @@ class Header:
 
     @staticmethod
     def encode(length: int, packetType: int) -> bytes:
-        # 0x1fffffff == 0001 1111|1111 1111|1111 1111|1111 1111
-        # header bits-> ^^^
-        if length > 0x1fffffff or length < 0:
+        # 0x0fffffff == 0000 1111|1111 1111|1111 1111|1111 1111
+        # header bits-> ^^^^
+        if length > 0x0fffffff or length < 0:
             raise ValueError("length too " + "small" if length < 0 else "large" + " to handle")
 
         if packetType in [STD_REQUEST, STD_RESPONSE, STD_PUSH]:
             byteList = [
-                packetType << 5 + ((length >> 24) & 0x1f),
+                packetType << 4 + ((length >> 24) & 0x0f),
                 (length >> 16) & 0xff,
                 (length >> 8)  & 0xff,
                 (length)       & 0xff
             ]
+        elif packetType == KEEP_ALIVE:
+            logger.warning(f"tried to encode packet header with packetType KEEP_ALIVE, please use packet.sendKeepAlive function")
+            return 0
         else:
             raise ValueError(f"packet type {packetType} not recognized")
 
@@ -66,13 +71,15 @@ class Header:
 
     @staticmethod
     def decode(head) -> int:
-        packetType = (head[0] & 0b11100000) >> 5
+        # 0xf0 = 1111 0000
+        packetType = (head[0] & 0xf0) >> 4
 
         if packetType == 0:
             logger.debug(f"header decoded, recieved KEEP_ALIVE")
             return (0, 0)
 
-        byteList = [head[0] & 0x1f]
+        # 0x0f = 0000 1111
+        byteList = [head[0] & 0x0f]
         for i in range(1, HEADER_LENGTH):
             byteList.append(head[i] & 0xff)
 
@@ -80,7 +87,7 @@ class Header:
         return (
             int.from_bytes(bytes(byteList), HEADER_BYTEORDER),
             packetType
-            )
+        )
 
 def sendKeepAlive(connection):
     logger.debug(f"sent KEEP_ALIVE")
