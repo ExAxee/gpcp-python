@@ -12,10 +12,15 @@ HEADER_LENGTH    = 4
 ENCODING         = "utf-8"
 
 # header packet type numbers
-KEEP_ALIVE   = 0
-STD_REQUEST  = 1
-STD_RESPONSE = 2
-STD_PUSH     = 3
+# numbers available: from 0 to 15
+KEEP_ALIVE   = 0  # 0b0000 | 0x0
+STD_REQUEST  = 1  # 0b0001 | 0x1
+STD_RESPONSE = 2  # 0b0010 | 0x2
+STD_PUSH     = 3  # 0b0011 | 0x3
+STD_ERROR    = 15 # 0b1111 | 0xf
+
+# list containing all packet types except for KEEP_ALIVE
+PACKET_TYPES = [STD_REQUEST, STD_RESPONSE, STD_PUSH, STD_ERROR]
 
 class CommandData:
 
@@ -53,7 +58,7 @@ class Header:
         if length > 0x0fffffff or length < 0:
             raise ValueError("length too " + "small" if length < 0 else "large" + " to handle")
 
-        if packetType in [STD_REQUEST, STD_RESPONSE, STD_PUSH]:
+        if packetType in PACKET_TYPES:
             byteList = [
                 packetType << 4 + ((length >> 24) & 0x0f),
                 (length >> 16) & 0xff,
