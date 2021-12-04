@@ -23,10 +23,11 @@ class BufferEvent:
 
 class Dispatcher:
 
-    def __init__(self, socket, timeout: float = 0.1):
+    def __init__(self, socket, timeout: float = 0.5):
         #initialize the event triggers
         self.request = BufferEvent()
         self.response = BufferEvent()
+
         self.socket = socket
         self.socket.settimeout(timeout)
         self._stop = False
@@ -41,11 +42,13 @@ class Dispatcher:
             self.response.update.clear()
 
             try:
-                data, isRequest = packet.receiveAll(self.socket)
+                data, pkgType = packet.receiveAll(self.socket) 
             except TimeoutError:
+                # keep looping to check self._stop to block the dispatcher
                 continue
 
-            if data is None: # connection was closed
+            # packet.recieve all returns (None, None) if connection is closed
+            if data is None and pkgType is None:
                 logger.debug(f"received None from {self.socket.getpeername()}, terminating dispatcher")
                 self.request.buffer.append(None)
                 self.response.buffer.append(None)
@@ -55,15 +58,23 @@ class Dispatcher:
 
                 self._stop = True
 
-            else:
-                if isRequest:
+            # packet.recieve all returns (json, int) if packet is a data packet
+            elif data is not None and pkgType is not None:
+                if pkgType == packet.STD_REQUEST:
                     logger.debug(f"received request: {data}")
                     self.request.buffer.append(data)
                     self.request.update.set()
-                else:
+                elif pkgType == packet.STD_RESPONSE:
                     logger.debug(f"received response: {data}")
                     self.response.buffer.append(data)
                     self.response.update.set()
+            
+            # packet.recieve all returns (None, int) if packet is control packet
+            elif data is None and pkgType is not None:
+                if pkgType == packet.KEEP_ALIVE:
+                    pass
+                elif pkgType == packet.CONN_SHUTDOWN:
+                    pass # TODO handle shutdown
 
     def setStopFlag(self):
         self.request.update.set()
