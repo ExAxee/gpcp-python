@@ -134,14 +134,15 @@ def receiveAll(connection) -> Union[str, None]:
     try:
         #read the first byte of the header from a buffered request
         head = connection.recv(1)
-        pkgType = head >> 4 # get the packet type number
 
         # if the packet is None then the connection is either dead or closed
         if head is None:
             return (None, None)
-        
+
+        pkgType = head >> 4 # get the packet type number
+
         # if packet is between the known data packets then return the data
-        elif pkgType in DATA_PACKETS:
+        if pkgType in DATA_PACKETS:
             head += connection.recv(3) # recieve the remaining header data
             byteCount, packetType = Header.decode(head)
 
