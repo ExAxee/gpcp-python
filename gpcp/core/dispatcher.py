@@ -5,28 +5,11 @@ from gpcp.core import packet
 
 logger = logging.getLogger(__name__)
 
-class BufferEvent:
-    def __init__(self):
-        self.update = Event()
-        self.buffer = []
-
-    def waitForUpdate(self, timeout=5):
-        if len(self.buffer) != 0:
-            return self.buffer.pop(0)
-
-        self.update.wait(timeout)
-        if len(self.buffer) != 0:
-            return self.buffer.pop(0)
-
-        self.update.clear()
-        raise TimeoutError()
-
 class Dispatcher:
 
-    def __init__(self, socket, timeout: float = 0.5):
+    def __init__(self, socket, buffer, timeout: float = 0.5):
         #initialize the event triggers
-        self.request = BufferEvent()
-        self.response = BufferEvent()
+        self.dataBuffer = buffer
 
         self.socket = socket
         self.socket.settimeout(timeout)
@@ -36,10 +19,22 @@ class Dispatcher:
         self.thread.setName(f"{self.socket.getsockname()} dispatcher")
         self.thread.start()
 
-    def startReceiver(self):
+    # define functions to be overwritten when needed
+    def onKeepAlive(self):
+        logger.warning(f"recieved unhandled control packet: {packet.KEEP_ALIVE}")
+    
+    def onConnectionShutdown(self):
+        logger.warning(f"recieved unhandled control packet: {packet.CONN_SHUTDOWN}")
+    
+    def onRequest(self, data):
+        logger.warning(f"recieved unhandled data packet: {packet.STD_REQUEST} with data: {data}")
+
+    def onResponse(self, data):
+        logger.warning(f"recieved unhandled data packet: {packet.STD_RESPONSE} with data: {data}")
+    # end overwrittable functions
+
+    def startReceiver(self, data):
         while not self._stop:
-            self.request.update.clear()
-            self.response.update.clear()
 
             try:
                 data, pkgType = packet.receiveAll(self.socket) 
@@ -50,33 +45,24 @@ class Dispatcher:
             # packet.recieve all returns (None, None) if connection is closed
             if data is None and pkgType is None:
                 logger.debug(f"received None from {self.socket.getpeername()}, terminating dispatcher")
-                self.request.buffer.append(None)
-                self.response.buffer.append(None)
-
-                self.request.update.set()
-                self.response.update.set()
-
+                self.dataBuffer.buffer.put(None)
                 self._stop = True
 
             # packet.recieve all returns (json, int) if packet is a data packet
             elif data is not None and pkgType is not None:
                 if pkgType == packet.STD_REQUEST:
                     logger.debug(f"received request: {data}")
-                    self.request.buffer.append(data)
-                    self.request.update.set()
+                    self.onRequest(data)
                 elif pkgType == packet.STD_RESPONSE:
                     logger.debug(f"received response: {data}")
-                    self.response.buffer.append(data)
-                    self.response.update.set()
+                    self.onResponse(data)
             
             # packet.recieve all returns (None, int) if packet is control packet
             elif data is None and pkgType is not None:
                 if pkgType == packet.KEEP_ALIVE:
-                    pass
+                    self.onKeepAlive()
                 elif pkgType == packet.CONN_SHUTDOWN:
-                    pass # TODO handle shutdown
+                    self.onConnectionShutdown()
 
     def setStopFlag(self):
-        self.request.update.set()
-        self.response.update.set()
         self._stop = True
