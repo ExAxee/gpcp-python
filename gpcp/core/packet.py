@@ -11,16 +11,24 @@ HEADER_BYTEORDER = "big"
 HEADER_LENGTH    = 4
 ENCODING         = "utf-8"
 
-# header packet type numbers
 # numbers available: from 0 to 15
-KEEP_ALIVE   = 0  # 0b0000 | 0x0
-STD_REQUEST  = 1  # 0b0001 | 0x1
-STD_RESPONSE = 2  # 0b0010 | 0x2
-STD_PUSH     = 3  # 0b0011 | 0x3
-STD_ERROR    = 15 # 0b1111 | 0xf
+# HEADER PACKET TYPES
 
-# list containing all packet types except for KEEP_ALIVE
-PACKET_TYPES = [STD_REQUEST, STD_RESPONSE, STD_PUSH, STD_ERROR]
+# control packets: from 0x0 to 0x7
+KEEP_ALIVE    = 0  # 0b0000 | 0x0
+CONN_SHUTDOWN = 1  # 0b0001 | 0x1
+
+#  data packets: from 0x8 to 0xf
+STD_REQUEST   = 8  # 0b1000 | 0x8
+STD_RESPONSE  = 9  # 0b1001 | 0x9
+STD_PUSH      = 10 # 0b1010 | 0xA
+STD_ERROR     = 15 # 0b1111 | 0xF
+
+# list containing all data packets
+DATA_PACKETS = [STD_REQUEST, STD_RESPONSE, STD_PUSH, STD_ERROR]
+
+# list containing all control packets
+CONTROL_PACKETS = [KEEP_ALIVE, CONN_SHUTDOWN]
 
 class CommandData:
 
@@ -58,7 +66,7 @@ class Header:
         if length > 0x0fffffff or length < 0:
             raise ValueError("length too " + "small" if length < 0 else "large" + " to handle")
 
-        if packetType in PACKET_TYPES:
+        if packetType in DATA_PACKETS:
             byteList = [
                 packetType << 4 + ((length >> 24) & 0x0f),
                 (length >> 16) & 0xff,
@@ -126,13 +134,18 @@ def receiveAll(connection) -> Union[str, None]:
     try:
         #read the first byte of the header from a buffered request
         head = connection.recv(1)
+        pkgType = head >> 4 # get the packet type number
 
-        if head is None: # recieve None if connection is closed
+        # if the packet is None then the connection is either dead or closed
+        if head is None:
             return (None, None)
-        elif head != 0: # recieve something if there is packet
-            head += connection.recv(3)
+        
+        # if packet is between the known data packets then return the data
+        elif pkgType in DATA_PACKETS:
+            head += connection.recv(3) # recieve the remaining header data
             byteCount, packetType = Header.decode(head)
-            data = connection.recv(byteCount) #read the actual message of len head
+
+            data = connection.recv(byteCount) # read the actual message of len head
             logger.debug(f"receiving data fragment {data} from {connection.getpeername()}")
 
             while len(data) < byteCount:
@@ -141,7 +154,13 @@ def receiveAll(connection) -> Union[str, None]:
                 data += fragment
 
             return (data, packetType)
-        else: # KEEP_ALIVE
-            return (None, 0)
+
+        # if packet is between the known control packets then return the control code
+        elif pkgType in CONTROL_PACKETS:
+            return (None, pkgType)
+        
+        # the packet is not recognized
+        else:
+            raise IOError(f"Invalid packet type {bin(pkgType)}")
     except socket.timeout:
         raise TimeoutError()
