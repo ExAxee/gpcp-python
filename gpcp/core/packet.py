@@ -104,7 +104,11 @@ class Header:
 
 def sendKeepAlive(connection):
     logger.debug(f"sent KEEP_ALIVE")
-    connection.send(0)
+    connection.send(KEEP_ALIVE)
+
+def sendConnectionShutdown(connection):
+    logger.debug(f"sent CONN_SHUTDOWN")
+    connection.send(CONN_SHUTDOWN)
 
 def sendAll(connection, data: Union[bytes, str], packetType: int = STD_RESPONSE):
     """
