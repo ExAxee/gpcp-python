@@ -1,2 +1,4 @@
 __pycache__/
 test_*.*
+build/
+*.egg-info/
