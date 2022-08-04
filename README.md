@@ -11,3 +11,9 @@ Some simple examples are available in the [examples/](examples/) folder.
 
 ## Contributing
 The roadmap is available on [Trello](https://trello.com/b/wzVH18Fd/gpcp "GPCP On Trello"). Now gpcp is not so ready to use it in projects but it will, if you find problems or want to give a suggestion please open an issue here.
+
+## Testing
+
+Testing the project requires the following `pip` packages: `pytest`, `pytest-reraise`.
+
+Just run `pytest` in the root directory to run all tests.
