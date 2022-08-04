@@ -13,6 +13,10 @@ def runServer():
         def waitSomeTime(self) -> None:
             time.sleep(SLEEP_SECONDS)
 
+        @gpcp.command
+        def anotherCommand(self, a: str) -> str:
+            return a + a
+
     global server
     with gpcp.Server(handler=ServerHandler) as server:
         server.startServer(HOST, PORT)
@@ -20,7 +24,9 @@ def runServer():
 def runClient():
     with gpcp.Client(HOST, PORT) as client:
         client.loadInterface(client)
+        assert client.anotherCommand("abc") == "abcabc"
         client.waitSomeTime()
+        assert client.anotherCommand("abcd") == "abcdabcd"
 
 
 def test_longTimeout(reraise):
