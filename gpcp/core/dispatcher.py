@@ -32,7 +32,7 @@ class Dispatcher:
         self._stop = False
 
         self.thread = Thread(target=self.startReceiver)
-        self.thread.setName(f"{self.socket.getsockname()} dispatcher")
+        self.thread.name = f"{self.socket.getsockname()} dispatcher"
         self.thread.start()
 
     def startReceiver(self):

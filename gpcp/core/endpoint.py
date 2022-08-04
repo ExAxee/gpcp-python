@@ -93,7 +93,7 @@ class EndPoint():
 
     def startMainLoopThread(self):
         self.mainLoopThread = Thread(target=self.mainLoop)
-        self.mainLoopThread.setName(f"connection ({self.remoteAddress[0]}:{self.remoteAddress[1]})")
+        self.mainLoopThread.name = f"connection ({self.remoteAddress[0]}:{self.remoteAddress[1]})"
         self.mainLoopThread.start()
 
     def _closeConnection(self, calledFromMainLoopThread: bool):
