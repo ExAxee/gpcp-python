@@ -17,3 +17,12 @@ The roadmap is available on [Trello](https://trello.com/b/wzVH18Fd/gpcp "GPCP On
 Testing the project requires the following `pip` packages: `pytest`, `pytest-reraise`.
 
 Just run `pytest` in the root directory to run all tests.
+
+## Logging
+
+To save gpcp logs to file in your application, use the following code:
+
+```python
+import logging
+logging.basicConfig(filename="./logs.txt", level=logging.DEBUG, force=True)
+```
