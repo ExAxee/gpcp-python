@@ -24,6 +24,7 @@ class EndPoint():
         """
         self._stop = False
         self._finishedInitializing = False
+        self._isServer = server is not None
         self.socket = socket
         self.localAddress = self.socket.getsockname()
         self.remoteAddress = self.socket.getpeername()
@@ -90,7 +91,8 @@ class EndPoint():
 
     def startMainLoopThread(self):
         self.mainLoopThread = Thread(target=self.mainLoop, daemon=True)
-        self.mainLoopThread.name = f"connection ({self.remoteAddress[0]}:{self.remoteAddress[1]})"
+        self.mainLoopThread.name = (f"connection ({self.remoteAddress[0]}:{self.remoteAddress[1]}) on "
+            + "server" if self._isServer else "client")
         self.mainLoopThread.start()
 
     def _closeConnection(self, calledFromMainLoopThread: bool):
