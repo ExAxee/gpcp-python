@@ -26,6 +26,9 @@ class Dispatcher:
                 data, isRequest = packet.receiveAll(self.socket)
             except TimeoutError:
                 continue
+            except (ConnectionError, OSError) as e:
+                logger.error(f"{e} encountered while receiving data from {self.thread.name}")
+                data = None
 
             if data is None: # connection was closed
                 logger.debug(f"received None, terminating {self.thread.name}")

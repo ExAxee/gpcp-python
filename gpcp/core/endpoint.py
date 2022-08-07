@@ -87,7 +87,13 @@ class EndPoint():
                 response = self.handler.handleData(data)
                 if response == "ENDPOINT NOT STARTED TO THIS SCOPE":
                     logger.warning(f"unexpected request with data={data} while handler locked from {self.remoteAddress}")
-                packet.sendAll(self.socket, response)
+
+                try:
+                    packet.sendAll(self.socket, response)
+                except (ConnectionError, OSError) as e:
+                    logger.error(f"{e} encountered while sending data to {self.remoteAddress}, closing connection")
+                    self._closeConnection(True)
+                    break
 
     def startMainLoopThread(self):
         self.mainLoopThread = Thread(target=self.mainLoop, daemon=True)
