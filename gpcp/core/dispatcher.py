@@ -33,6 +33,7 @@ class Dispatcher:
             if data is None: # connection was closed
                 logger.debug(f"received None, terminating {self.thread.name}")
                 self.stopReceiver()
+                break
 
             else:
                 if isRequest:
