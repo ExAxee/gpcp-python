@@ -28,7 +28,7 @@ class Dispatcher:
                 continue
 
             if data is None: # connection was closed
-                logger.debug(f"received None from {self.socket.getpeername()}, terminating dispatcher")
+                logger.debug(f"received None, terminating {self.thread.name}")
                 self.stopReceiver()
 
             else:
