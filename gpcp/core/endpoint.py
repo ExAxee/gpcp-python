@@ -46,14 +46,17 @@ class EndPoint():
         if remoteConfig["role"] not in ["R", "A", "AR", "RA"]:
             logger.error(f"invalid configuration argument '{remoteConfig['role']}' for 'role' in connection {self.remoteAddress}, closing")
             self.socket.close()
+            return
 
         # checking if the endpoints can actually talk to each other
         if remoteConfig["role"] == "R" and self.role == "R":
             logger.warning(f"both local {self.localAddress} and remote {self.remoteAddress} endpoints can only respond, closing")
             self.socket.close()
+            return
         elif remoteConfig["role"] == "A" and self.role == "A":
             logger.warning(f"both local {self.localAddress} and remote {self.remoteAddress} endpoints can only request, closing")
             self.socket.close()
+            return
 
         # locking the handler if needed
         if self.handler is not None:
