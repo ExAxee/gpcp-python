@@ -31,10 +31,12 @@ def runClient():
 
 
 def test_longTimeout(reraise):
-    serverThread = threading.Thread(target=reraise.wrap(runServer))
+    serverThread = threading.Thread(target=reraise.wrap(runServer), daemon=True)
     serverThread.start()
 
-    clientThreads = [threading.Thread(target=reraise.wrap(runClient)) for i in range(CLIENTS)]
+    time.sleep(0.1) # make sure the server has started
+
+    clientThreads = [threading.Thread(target=reraise.wrap(runClient), daemon=True) for i in range(CLIENTS)]
     for thread in clientThreads:
         thread.start()
 
@@ -46,3 +48,4 @@ def test_longTimeout(reraise):
 
     server.stopServer()
     serverThread.join()
+    assert len(threading._active.items()) == 1
