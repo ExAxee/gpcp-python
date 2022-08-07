@@ -113,7 +113,8 @@ class Server:
 
         # closing all connections, after self.running became unset
         for endpoint in self.connectedEndpoints:
-            self.closeConnection(endpoint.localAddress[0], endpoint.localAddress[1])
+            self._terminateEndpoint(endpoint)
+        self.connectedEndpoints.clear()
 
         # closing socket, after self.running became unset
         try:
@@ -137,17 +138,25 @@ class Server:
         deleted = False
         for i, endpoint in enumerate(self.connectedEndpoints):
             if endpoint.localAddress == (host, port):
-                data = endpoint.handler.onDisonnected(self, endpoint.socket, endpoint.remoteAddress)
-                if data is not None:
-                    packet.sendAll(endpoint.socket, data)
-
-                endpoint._closeConnection(True)
+                self._terminateEndpoint(endpoint)
                 del self.connectedEndpoints[i]
                 deleted = True
                 break
 
         if not deleted:
             raise ConfigurationError(f"{host}:{port} is not a connected endpoint of this server")
+
+    def _terminateEndpoint(self, endpoint):
+        data = endpoint.handler.onDisonnected(self, endpoint.socket, endpoint.remoteAddress)
+        if data is not None:
+            try:
+                packet.sendAll(endpoint.socket, data)
+            except (ConnectionError, OSError) as e:
+                logger.error(f"{e} encountered while sending onDisconnected packet to {endpoint.remoteAddress}")
+                pass
+
+        endpoint.closeConnection()
+        logger.debug(f"endpoint {endpoint.remoteAddress} terminated successfully")
 
     def stopServer(self):
         """
