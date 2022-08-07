@@ -89,7 +89,7 @@ class EndPoint():
                 packet.sendAll(self.socket, response)
 
     def startMainLoopThread(self):
-        self.mainLoopThread = Thread(target=self.mainLoop)
+        self.mainLoopThread = Thread(target=self.mainLoop, daemon=True)
         self.mainLoopThread.name = f"connection ({self.remoteAddress[0]}:{self.remoteAddress[1]})"
         self.mainLoopThread.start()
 
