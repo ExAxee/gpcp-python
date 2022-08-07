@@ -73,11 +73,8 @@ class EndPoint():
         self._finishedInitializing = True
 
         while not self._stop:
-            #wait for a request to come
-            try:
-                data = self.dispatcher.request.waitForUpdate()
-            except TimeoutError:
-                continue
+            # wait for a request to come
+            data = self.dispatcher.request.get()
 
             if data is None: # connection was closed
                 logger.info(f"received None data from {self.remoteAddress}, closing connection")
@@ -93,7 +90,7 @@ class EndPoint():
 
     def startMainLoopThread(self):
         self.mainLoopThread = Thread(target=self.mainLoop)
-        self.mainLoopThread.setName(f"connection ({self.remoteAddress[0]}:{self.remoteAddress[1]})")
+        self.mainLoopThread.name = f"connection ({self.remoteAddress[0]}:{self.remoteAddress[1]})"
         self.mainLoopThread.start()
 
     def _closeConnection(self, calledFromMainLoopThread: bool):
@@ -110,8 +107,7 @@ class EndPoint():
         else:
             # set stop flags for threads: dispatcher.setStopFlag() also sets events for request/response buffers
             self._stop = True
-            if self._finishedInitializing:
-                self.dispatcher.setStopFlag()
+            self.dispatcher.stopReceiver()
 
             if not calledFromMainLoopThread:
                 # first join our thread, which should be instant since events for request/response buffers were set
@@ -202,8 +198,8 @@ class EndPoint():
         data = packet.CommandData.encode(commandIdentifier, arguments)
         #send the request
         packet.sendAll(self.socket, data, isRequest=True)
-        #wait for the response trigger to activate and load the response
-        response = self.dispatcher.response.waitForUpdate()
+        # wait for a response to be enqueued to the response queue
+        response = self.dispatcher.response.get()
         result = json.loads(response.decode(packet.ENCODING))
         logger.debug(f"commandRequest() received result={result}")
         return result
