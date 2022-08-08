@@ -16,7 +16,7 @@ class Dispatcher:
         self.socket.settimeout(timeout)
         self._stop = False
 
-        self.thread = Thread(target=self.startReceiver)
+        self.thread = Thread(target=self.startReceiver, daemon=True)
         self.thread.name = f"{self.socket.getsockname()} dispatcher"
         self.thread.start()
 
@@ -26,10 +26,14 @@ class Dispatcher:
                 data, isRequest = packet.receiveAll(self.socket)
             except TimeoutError:
                 continue
+            except (ConnectionError, OSError) as e:
+                logger.error(f"{e} encountered while receiving data from {self.thread.name}")
+                data = None
 
             if data is None: # connection was closed
-                logger.debug(f"received None from {self.socket.getpeername()}, terminating dispatcher")
+                logger.debug(f"received None, terminating {self.thread.name}")
                 self.stopReceiver()
+                break
 
             else:
                 if isRequest:

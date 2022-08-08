@@ -24,6 +24,7 @@ class EndPoint():
         """
         self._stop = False
         self._finishedInitializing = False
+        self._isServer = server is not None
         self.socket = socket
         self.localAddress = self.socket.getsockname()
         self.remoteAddress = self.socket.getpeername()
@@ -45,14 +46,17 @@ class EndPoint():
         if remoteConfig["role"] not in ["R", "A", "AR", "RA"]:
             logger.error(f"invalid configuration argument '{remoteConfig['role']}' for 'role' in connection {self.remoteAddress}, closing")
             self.socket.close()
+            return
 
         # checking if the endpoints can actually talk to each other
         if remoteConfig["role"] == "R" and self.role == "R":
             logger.warning(f"both local {self.localAddress} and remote {self.remoteAddress} endpoints can only respond, closing")
             self.socket.close()
+            return
         elif remoteConfig["role"] == "A" and self.role == "A":
             logger.warning(f"both local {self.localAddress} and remote {self.remoteAddress} endpoints can only request, closing")
             self.socket.close()
+            return
 
         # locking the handler if needed
         if self.handler is not None:
@@ -86,11 +90,18 @@ class EndPoint():
                 response = self.handler.handleData(data)
                 if response == "ENDPOINT NOT STARTED TO THIS SCOPE":
                     logger.warning(f"unexpected request with data={data} while handler locked from {self.remoteAddress}")
-                packet.sendAll(self.socket, response)
+
+                try:
+                    packet.sendAll(self.socket, response)
+                except (ConnectionError, OSError) as e:
+                    logger.error(f"{e} encountered while sending data to {self.remoteAddress}, closing connection")
+                    self._closeConnection(True)
+                    break
 
     def startMainLoopThread(self):
-        self.mainLoopThread = Thread(target=self.mainLoop)
-        self.mainLoopThread.name = f"connection ({self.remoteAddress[0]}:{self.remoteAddress[1]})"
+        self.mainLoopThread = Thread(target=self.mainLoop, daemon=True)
+        self.mainLoopThread.name = (f"connection ({self.remoteAddress[0]}:{self.remoteAddress[1]}) on "
+            + "server" if self._isServer else "client")
         self.mainLoopThread.start()
 
     def _closeConnection(self, calledFromMainLoopThread: bool):
@@ -183,23 +194,30 @@ class EndPoint():
             #assigning the method to the namespace class
             setattr(namespace, command["name"], wrapper)
 
-    def commandRequest(self, commandIdentifier: str, arguments: list) -> str:
+    def commandRequest(self, commandIdentifier: str, arguments: list):
         """
         Format a command request with given arguments, send it and return the response.
-        Remember to deserialize the response using one of the types in
-        `gpcp.utils.base_types` or one extending them, otherwise the response will not
-        make sense since it was serialized on the server's end.
+        The response is returned after being read from JSON into a Python object using
+        `json.loads`. Remember to further deserialize the response using one of the
+        types in `gpcp.utils.base_types` or one extending them, otherwise the response
+        will not make sense since it was serialized on the server's end.
 
         :param arguments: list of all arguments to send to the server
         :param commandIdentifier: the name of the command to call
         """
+
         logger.debug(f"commandRequest() called with commandIdentifier={commandIdentifier}, arguments={arguments}")
-        #format the command into a valid request
+
+        # format the command into a valid request
         data = packet.CommandData.encode(commandIdentifier, arguments)
-        #send the request
+        # send the request
         packet.sendAll(self.socket, data, isRequest=True)
         # wait for a response to be enqueued to the response queue
         response = self.dispatcher.response.get()
+
+        if response is None:
+            raise ConnectionError("Did not get a response")
+
         result = json.loads(response.decode(packet.ENCODING))
         logger.debug(f"commandRequest() received result={result}")
         return result

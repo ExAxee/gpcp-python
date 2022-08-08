@@ -1,5 +1,6 @@
 """packet module containing functions to handle packets"""
 from typing import Union, Tuple
+from threading import current_thread
 import logging
 import json
 import socket
@@ -59,7 +60,7 @@ class Header:
         logger.debug(f"header decoded from head {head} to: isRequest {isRequest}; bytes {byteList}")
         return (int.from_bytes(bytes(byteList), HEADER_BYTEORDER), isRequest)
 
-def sendAll(connection, data: Union[bytes, str], isRequest:bool = False):
+def sendAll(connection, data: Union[bytes, str], isRequest: bool = False):
     """
     sends all data, this is not the default socket.sendall() function
 
@@ -72,7 +73,7 @@ def sendAll(connection, data: Union[bytes, str], isRequest:bool = False):
 
     data = bytes(Header.encode(len(data), isRequest)) + data
     while data:
-        logger.debug(f"sending data fragment {data} to {connection.getpeername()}")
+        logger.debug(f"sending data fragment {data} to {current_thread().name}")
         sent = connection.send(data)
         data = data[sent:]
 
@@ -89,11 +90,11 @@ def receiveAll(connection) -> Union[str, None]:
         if head:
             byteCount, isRequest = Header.decode(head)
             data = connection.recv(byteCount) #read the actual message of len head
-            logger.debug(f"receiving data fragment {data} from {connection.getpeername()}")
+            logger.debug(f"receiving data fragment {data} from {current_thread().name}")
 
             while len(data) < byteCount:
                 fragment = connection.recv(byteCount - len(data))
-                logger.debug(f"receiving data fragment {fragment} from {connection.getpeername()}")
+                logger.debug(f"receiving data fragment {fragment} from {current_thread().name}")
                 data += fragment
 
             return (data, isRequest)
